@@ -377,7 +377,8 @@ object magicWandSupporter extends SymbolicExecutionRules {
   def applyWand(s: State,
                 wand: ast.MagicWand,
                 pve: PartialVerificationError,
-                v: Verifier)
+                v: Verifier,
+                isApplying: Boolean)
                (Q: (State, Verifier) => VerificationResult)
                : VerificationResult = {
         consume(s, wand, pve, v)((s1, snap, v1) => {
@@ -385,9 +386,10 @@ object magicWandSupporter extends SymbolicExecutionRules {
           consume(s1, wand.left, pve, v1)((s2, snap, v2) => {
             /* It is assumed that snap and wandSnap.abstractLhs are structurally the same.
              * Since a wand can only be applied once, equating the two snapshots is sound.
+             * => NOT TRUE. A wand can be applied multiple times using the applying expression.
              */
             assert(snap.sort == sorts.Snap, s"expected snapshot but found: $snap")
-            v2.decider.assume(snap === wandSnap.abstractLhs)
+            if (!isApplying) v2.decider.assume(snap === wandSnap.abstractLhs)
             val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
             produce(s3.copy(conservingSnapshotGeneration = true), toSf(wandSnap.rhsSnapshot), wand.right, pve, v2)((s4, v3) => {
               val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)

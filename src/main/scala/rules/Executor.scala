@@ -639,7 +639,7 @@ object executor extends ExecutionRules {
 
       case apply @ ast.Apply(e) =>
         val pve = ApplyFailed(apply)
-        magicWandSupporter.applyWand(s, e, pve, v)(Q)
+        magicWandSupporter.applyWand(s, e, pve, v, isApplying = false)(Q)
 
       case havoc: ast.Quasihavoc =>
         havocSupporter.execHavoc(havoc, v, s)(Q)
