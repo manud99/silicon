@@ -178,9 +178,9 @@ object consumer extends ConsumptionRules {
 
     v.logger.debug(s"\nCONSUME ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
     v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
-    v.logger.debug("h = " + v.stateFormatter.format(h))
+//    v.logger.debug("heap = " + v.stateFormatter.format(h)) // is already printed by the stateFormatter
     if (s.reserveHeaps.nonEmpty)
-      v.logger.debug("hR = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
+      v.logger.debug("reserveHeap = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
 
     val consumed = a match {
       case imp @ ast.Implies(e0, a0) if !a.isPure && s.moreJoins =>

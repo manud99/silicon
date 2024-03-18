@@ -39,10 +39,10 @@ class DefaultStateFormatter extends StateFormatter {
       else
         ""
 
-    s"""Store: $gStr,
-       |Heap: $hStr,
-       |OHs: $oldHeapsStr,
-       |PCs: $pcsStr)""".stripMargin
+    s"""  Store: $gStr,
+       |  Heap: $hStr,
+       |  Old Heaps: $oldHeapsStr,
+       |  Path Conditions: $pcsStr""".stripMargin
   }
 
   def format(g: Store): String = g.values.mkString("(", ", ", ")")
