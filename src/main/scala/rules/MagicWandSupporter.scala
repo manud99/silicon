@@ -191,8 +191,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
     }
   }
 
-//  private var cnt = 0L
-//  private val packageLogger = LoggerFactory.getLogger("package")
+  private var cnt = 0L
 
   def packageWand(state: State,
                   wand: ast.MagicWand,
@@ -204,36 +203,31 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     /* TODO: Logging code is very similar to that in HeuristicsSupporter. Unify. */
 
-//    val myId = cnt; cnt += 1
-//    val baseIdent = "  "
-//    var printedHeader = false
+    val myId = cnt; cnt += 1
+    val baseIdent = "  "
+    var printedHeader = false
 
-//    def lnsay(msg: String, ident: Int = 1) {
-//      val prefix = "\n" + (if (ident == 0) "" else baseIdent)
-//      dosay(prefix, msg, ident - 1)
-//    }
-//
-//    def say(msg: String, ident: Int = 1) {
-//      val prefix = if (ident == 0) "" else baseIdent
-//      dosay(prefix, msg, ident - 1)
-//    }
-//
-//    def dosay(prefix: String, msg: String, ident: Int) {
-//      if (!printedHeader) {
-//        packageLogger.debug(s"\n[packageWand $myId]")
-//        printedHeader = true
-//      }
-//
-//      val messagePrefix = baseIdent * ident
-//      packageLogger.debug(s"$prefix$messagePrefix $msg")
-//    }
-//
-//    say(s"wand = $wand")
-//    say("c.reserveHeaps:")
-//    s.reserveHeaps.map(v.stateFormatter.format).foreach(str => say(str, 2))
+    def say(msg: String, ident: Int = 1) {
+      val prefix = if (ident == 0) "" else baseIdent
+      dosay(prefix, msg, ident - 1)
+    }
+
+    def dosay(prefix: String, msg: String, ident: Int) {
+      if (!printedHeader) {
+        v.logger.debug(s"\n[packageWand $myId]")
+        printedHeader = true
+      }
+
+      val messagePrefix = baseIdent * ident
+      v.logger.debug(s"$prefix$messagePrefix $msg")
+    }
 
     val s = if (state.exhaleExt) state else
       state.copy(reserveHeaps = Heap() :: state.h :: Nil)
+
+    say(s"wand = $wand")
+    say("c.reserveHeaps:")
+    s.reserveHeaps.map(v.stateFormatter.format).foreach(str => say(str, 2))
 
     val stackSize = 3 + s.reserveHeaps.tail.size
       /* IMPORTANT: Size matches structure of reserveHeaps at [State RHS] below */
@@ -295,7 +289,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
         })
       } else {
         magicWandSupporter.createChunk(s4, wand, freshSnapRoot, snap, pve, v3)((s5, ch, v4) => {
-//          say(s"done: create wand chunk: $ch")
+          say(s"done: create wand chunk: $ch")
           appendToResults(s5, ch, v4.decider.pcs.after(preMark), v4)
           Success()
         })
@@ -339,15 +333,15 @@ object magicWandSupporter extends SymbolicExecutionRules {
          */
         assert(stackSize == s2.reserveHeaps.length)
 
-//        say(s"done: produced LHS ${wand.left}")
-//        say(s"next: consume RHS ${wand.right}")
+        say(s"done: produced LHS ${wand.left}")
+        say(s"next: consume RHS ${wand.right}")
         executor.exec(s2, proofScriptCfg, v2)((proofScriptState, proofScriptVerifier) => {
           consume(proofScriptState.copy(oldHeaps = s2.oldHeaps, reserveCfgs = proofScriptState.reserveCfgs.tail), wand.right, pve, proofScriptVerifier)((s3, snap, v3) => {
-//            say(s"done: consumed RHS ${wand.right}")
+            say(s"done: consumed RHS ${wand.right}")
             val s4 = s3.copy(//h = s.h, /* Temporarily */
                              exhaleExt = false,
                              oldHeaps = s.oldHeaps)
-//            say(s"next: create wand chunk")
+            say(s"next: create wand chunk")
             createWandChunkAndRecordResults(s4, freshSnapRoot, snap, v3)})})})})
 
     if (results.isEmpty) {
