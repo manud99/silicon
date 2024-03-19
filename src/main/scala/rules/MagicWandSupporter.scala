@@ -341,8 +341,12 @@ object magicWandSupporter extends SymbolicExecutionRules {
             val s4 = s3.copy(//h = s.h, /* Temporarily */
                              exhaleExt = false,
                              oldHeaps = s.oldHeaps)
-            say(s"next: create wand chunk")
-            createWandChunkAndRecordResults(s4, freshSnapRoot, snap, v3)})})})})
+            say(s"next: create wand chunk $freshSnapRoot")
+            createWandChunkAndRecordResults(s4, freshSnapRoot, snap, v3)
+          })
+        })
+      })
+    })
 
     if (results.isEmpty) {
       // No results mean that packaging the wand resulted in inconsistent states on all paths,
@@ -375,20 +379,34 @@ object magicWandSupporter extends SymbolicExecutionRules {
                 isApplying: Boolean)
                (Q: (State, Verifier) => VerificationResult)
                : VerificationResult = {
-        consume(s, wand, pve, v)((s1, snap, v1) => {
-          val wandSnap = MagicWandSnapshot(snap)
-          consume(s1, wand.left, pve, v1)((s2, snap, v2) => {
-            /* It is assumed that snap and wandSnap.abstractLhs are structurally the same.
-             * Since a wand can only be applied once, equating the two snapshots is sound.
-             * => NOT TRUE. A wand can be applied multiple times using the applying expression.
-             */
-            assert(snap.sort == sorts.Snap, s"expected snapshot but found: $snap")
-            if (!isApplying) v2.decider.assume(snap === wandSnap.abstractLhs)
-            val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
-            produce(s3.copy(conservingSnapshotGeneration = true), toSf(wandSnap.rhsSnapshot), wand.right, pve, v2)((s4, v3) => {
-              val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)
-              val s6 = v3.stateConsolidator.consolidate(s5, v3).copy(oldHeaps = s1.oldHeaps)
-              Q(s6, v3)})})})}
+
+    // construct an arbitrary LHS that includes a fresh value for all fields that are on the wand's LHS
+    def generateArbitraryLhs(wandSnap: MagicWandSnapshot): Term = {
+      v.logger.debug(s"wandSnap: $wandSnap")
+      v.logger.debug(s"it is of sort ${wandSnap.sort}")
+      val freshSnapRoot = freshSnap(sorts.Snap, v)
+      v.logger.debug(s"freshSnapRoot $freshSnapRoot")
+      freshSnapRoot
+    }
+
+    consume(s, wand, pve, v)((s1, snap, v1) => {
+      val wandSnap = MagicWandSnapshot(snap)
+      consume(s1, wand.left, pve, v1)((s2, snap, v2) => {
+        /* It is assumed that snap and wandSnap.abstractLhs are structurally the same.
+         * Since a wand can only be applied once, equating the two snapshots is sound.
+         * => NOT TRUE. A wand can be applied multiple times using the applying expression.
+         */
+        assert(snap.sort == sorts.Snap, s"expected snapshot but found: $snap")
+        if (isApplying) {
+          v2.decider.assume(snap === generateArbitraryLhs(wandSnap))
+        } else {
+          v2.decider.assume(snap === wandSnap.abstractLhs)
+        }
+        val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
+        produce(s3.copy(conservingSnapshotGeneration = true), toSf(wandSnap.rhsSnapshot), wand.right, pve, v2)((s4, v3) => {
+          val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)
+          val s6 = v3.stateConsolidator.consolidate(s5, v3).copy(oldHeaps = s1.oldHeaps)
+          Q(s6, v3)})})})}
 
   def transfer[CH <: Chunk]
               (s: State,
