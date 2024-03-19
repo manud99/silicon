@@ -49,7 +49,7 @@ class DefaultStateFormatter extends StateFormatter {
   def format(h: Heap): String = h.values.mkString("(", ", ", ")")
 
   def format(oldHeaps: OldHeaps): String = {
-    oldHeaps.map{case (id, h) => s"$id: ${format(h)}"}.mkString("(", ",\n", ")")
+    oldHeaps.map{case (id, h) => s"$id: ${format(h)}"}.mkString("(", ",\n    ", ")")
   }
 
   /** Attention: The current implementation hides non-null and combine terms! **/
