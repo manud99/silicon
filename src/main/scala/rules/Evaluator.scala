@@ -64,6 +64,12 @@ object evaluator extends EvaluationRules {
   import consumer._
   import producer._
 
+  /**
+   * Evaluates a list of expressions and returns their values as a list of terms.
+   *
+   * @param es List of expressions to evaluate.
+   * @param Q Method which is called with the result as its second argument.
+   */
   def evals(s: State, es: Seq[ast.Exp], pvef: ast.Exp => PartialVerificationError, v: Verifier)
            (Q: (State, List[Term], Verifier) => VerificationResult)
            : VerificationResult =

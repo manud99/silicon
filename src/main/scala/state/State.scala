@@ -18,6 +18,55 @@ import viper.silicon.supporters.PredicateData
 import viper.silicon.supporters.functions.{FunctionData, FunctionRecorder, NoopFunctionRecorder}
 import viper.silicon.{Map, Stack}
 
+/**
+ *
+ * @param g
+ * @param h
+ * @param program
+ * @param currentMember
+ * @param predicateData
+ * @param functionData
+ * @param oldHeaps
+ * @param parallelizeBranches
+ * @param recordVisited
+ * @param visited
+ * @param methodCfg
+ * @param invariantContexts
+ * @param constrainableARPs
+ * @param quantifiedVariables
+ * @param retrying
+ * @param underJoin
+ * @param functionRecorder
+ * @param conservingSnapshotGeneration
+ * @param recordPossibleTriggers
+ * @param possibleTriggers
+ * @param triggerExp
+ * @param partiallyConsumedHeap
+ * @param permissionScalingFactor
+ * @param reserveHeaps
+ * @param reserveCfgs
+ * @param conservedPcs
+ * @param recordPcs
+ * @param exhaleExt When `exhaleExt` is set [[viper.silicon.rules.magicWandSupporter.transfer magicWandSupporter.transfer]]
+ *                  is used to transfer permissions to `hUsed` (i.e. `reserveHeaps.head`) instead of consuming them.
+ *                  `hUsed` is later discarded and replaced by `s.h`. By copying `hUsed` to `s.h` the contained permissions remain available inside the wand.
+ *                  See [[viper.silicon.rules.magicWandSupporter.getEvalHeap]]
+ * @param ssCache
+ * @param hackIssue387DisablePermissionConsumption
+ * @param qpFields
+ * @param qpPredicates
+ * @param qpMagicWands Magic Wands that are part of a quantified expression, e.g. `forall x: Ref :: x in xs ==> true --* acc(x.f)`
+ * @param permLocations
+ * @param smCache
+ * @param pmCache
+ * @param smDomainNeeded
+ * @param predicateSnapMap
+ * @param predicateFormalVarMap
+ * @param retryLevel
+ * @param heapDependentTriggers
+ * @param moreCompleteExhale
+ * @param moreJoins
+ */
 final case class State(g: Store = Store(),
                        h: Heap = Heap(),
                        program: ast.Program,
