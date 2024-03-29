@@ -183,6 +183,6 @@ case class MagicWandChunk(id: MagicWandIdentifier,
       case rp: viper.silver.ast.HasLineColumn => s"${rp.line}:${rp.column}"
       case other => other.toString
     }
-    s"wand@$pos[$snap; ${args.mkString(",")}]"
+    s"wand@$pos[$snap; ${args.mkString(", ")}]"
   }
 }

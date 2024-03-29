@@ -20,10 +20,10 @@ import viper.silicon.{Map, Stack}
 
 /**
  *
- * @param g
- * @param h
- * @param program
- * @param currentMember
+ * @param g Represents the symbolic store, which maps variable identifiers to their symbolic values.
+ * @param h Represents the symbolic heap, which contains symbolic chunks representing the state of the heap.
+ * @param program AST of the program that is being validated.
+ * @param currentMember The current member (method, function, field, predicate, ...) that is being verified.
  * @param predicateData
  * @param functionData
  * @param oldHeaps
@@ -37,7 +37,7 @@ import viper.silicon.{Map, Stack}
  * @param retrying
  * @param underJoin
  * @param functionRecorder
- * @param conservingSnapshotGeneration
+ * @param conservingSnapshotGeneration Unused flag
  * @param recordPossibleTriggers
  * @param possibleTriggers
  * @param triggerExp

@@ -2295,48 +2295,68 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
 
 /* Magic wands */
 
-class MagicWandSnapshot(val abstractLhs: Term, val rhsSnapshot: Term) extends Combine(abstractLhs, rhsSnapshot) {
-  utils.assertSort(abstractLhs, "abstract lhs", sorts.Snap)
-  utils.assertSort(rhsSnapshot, "rhs", sorts.Snap)
+class MagicWandSnapshot(val rhsMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
+  // utils.assertSort(abstractLhs, "abstract lhs", sorts.Snap)
+  utils.assertSort(rhsMap, "rhs map", sorts.Map(sorts.Snap, sorts.Snap))
+// class MagicWandSnapshot(val map: Term) extends SnapshotTerm {
+  // Map from Snap to Snap
+//  utils.assertSort(map, "map", sorts.Map)
+//  utils.assertSort(map.sort.asInstanceOf[sorts.Map].keySort, "map key sort", sorts.Snap)
+//  utils.assertSort(map.sort.asInstanceOf[sorts.Map].valueSort, "map value sort", sorts.Snap)
 
-  override lazy val toString = s"wandSnap(lhs = $abstractLhs, rhs = $rhsSnapshot)"
+//  override lazy val toString = s"wandSnap(map $map)"
+
+  override lazy val toString = s"wandSnap(rhsMap = $rhsMap)"
 
   def merge(other: MagicWandSnapshot, branchConditions: Stack[Term]): MagicWandSnapshot = {
-    assert(this.abstractLhs == other.abstractLhs)
+    // assert(this.abstractLhs == other.abstractLhs)
     val condition = And(branchConditions)
-    MagicWandSnapshot(this.abstractLhs, if (this.rhsSnapshot == other.rhsSnapshot)
-      this.rhsSnapshot
-    else
-      Ite(condition, other.rhsSnapshot, this.rhsSnapshot))
+    // TODO: Merge the two maps and find test cases to test this
+    val mergedMap = this.rhsMap
+    MagicWandSnapshot(mergedMap)
+//    MagicWandSnapshot(this.abstractLhs, if (this.rhsSnapshot == other.rhsSnapshot)
+//      this.rhsSnapshot
+//    else
+//      Ite(condition, other.rhsSnapshot, this.rhsSnapshot))
   }
+
+  override val equalityDefiningMembers: Term = rhsMap
 }
 
 object MagicWandSnapshot  {
+  /**
+   * Since MagicWandSnapshot subclasses Combine, we cannot inherit the usual subclass
+   * [[viper.silicon.state.terms.GeneralCondFlyweightFactory]], so we have to copy&paste the code here.
+   */
+  var pool = new TrieMap[(Term, Term), MagicWandSnapshot]()
+
   def apply(snapshot: Term): MagicWandSnapshot = {
     assert(snapshot.sort == sorts.Snap)
     snapshot match {
       case snap: MagicWandSnapshot => snap
-      case _ =>
-        MagicWandSnapshot(First(snapshot), Second(snapshot))
+      case _ => createSnapshot(First(snapshot), Second(snapshot))
     }
   }
 
-  // Since MagicWandSnapshot subclasses Combine, we apparently cannot inherit the normal subclass, so we
-  // have to copy paste the code here.
-  var pool = new TrieMap[(Term, Term), MagicWandSnapshot]()
-
-  def createIfNonExistent(args: (Term, Term)): MagicWandSnapshot = {
+  def apply(abstractLhs: Term, rhsSnapshot: Term): MagicWandSnapshot = {
     if (Verifier.config.useFlyweight) {
-      pool.getOrElseUpdate(args, actualCreate(args))
+      pool.getOrElseUpdate((abstractLhs, rhsSnapshot), createSnapshot(abstractLhs, rhsSnapshot))
     } else {
-      actualCreate(args)
+      createSnapshot(abstractLhs, rhsSnapshot)
     }
   }
 
-  def actualCreate(tuple: (Term, Term)) = new MagicWandSnapshot(tuple._1, tuple._2)
-  def apply(fst: Term, snd: Term): MagicWandSnapshot = createIfNonExistent((fst, snd))
+  private def createSnapshot(abstractLhs: Term, rhsSnapshot: Term) = {
+    // TODO: create map out of Second(snapshot)
+    // this map should take First(snapshot) as key and merge them with Second(snapshot)
+    // the abstractLhs already defines a fresh variable that we can use to define the relation between LHS and RHS.
+    // So, to start with I simply try to build a map which takes such a LHS and returns the given RHS.
+    // There is the chance, that this results in the same unsoudness as the old implementation, but I think it is worth a try.
+    val map = MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot))
+    new MagicWandSnapshot(map)
+  }
 
-  def unapply(mws: MagicWandSnapshot) = Some((mws.abstractLhs, mws.rhsSnapshot))
+  def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.rhsMap)
 }
 
 class MagicWandChunkTerm(val chunk: MagicWandChunk) extends Term with ConditionalFlyweight[MagicWandChunk, MagicWandChunkTerm] {

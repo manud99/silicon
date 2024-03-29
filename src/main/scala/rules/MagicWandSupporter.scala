@@ -80,23 +80,23 @@ object magicWandSupporter extends SymbolicExecutionRules {
 //  }
 
   //TODO: needs to calculate a snapshot that preserves values from the lhs
-  def createChunk(s: State,
-                  wand: ast.MagicWand,
-                  pve: PartialVerificationError,
-                  v: Verifier)
-                  (Q: (State, MagicWandChunk, Verifier) => VerificationResult)
-                  : VerificationResult =
-    createChunk(s, wand, MagicWandSnapshot(freshSnap(sorts.Snap, v), freshSnap(sorts.Snap, v)), pve, v)(Q)
+//  def createChunk(s: State,
+//                  wand: ast.MagicWand,
+//                  pve: PartialVerificationError,
+//                  v: Verifier)
+//                  (Q: (State, MagicWandChunk, Verifier) => VerificationResult)
+//                  : VerificationResult =
+//    createChunk(s, wand, MagicWandSnapshot(freshSnap(sorts.Snap, v), freshSnap(sorts.Snap, v)), pve, v)(Q)
 
-  def createChunk(s: State,
-                  wand: ast.MagicWand,
-                  abstractLhs: Term,
-                  rhsSnapshot: Term,
-                  pve: PartialVerificationError,
-                  v: Verifier)
-                  (Q: (State, MagicWandChunk, Verifier) => VerificationResult)
-                  : VerificationResult =
-    createChunk(s, wand, MagicWandSnapshot(abstractLhs, rhsSnapshot), pve, v)(Q)
+//  def createChunk(s: State,
+//                  wand: ast.MagicWand,
+//                  abstractLhs: Term,
+//                  rhsSnapshot: Term,
+//                  pve: PartialVerificationError,
+//                  v: Verifier)
+//                  (Q: (State, MagicWandChunk, Verifier) => VerificationResult)
+//                  : VerificationResult =
+//    createChunk(s, wand, MagicWandSnapshot(abstractLhs, rhsSnapshot), pve, v)(Q)
 
   def createChunk(s: State,
                   wand: ast.MagicWand,
@@ -281,20 +281,25 @@ object magicWandSupporter extends SymbolicExecutionRules {
                                         v3: Verifier)
                                        : VerificationResult = {
       val preMark = v3.decider.setPathConditionMark()
+      v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
+      val wandSnapshot = MagicWandSnapshot(freshSnapRoot, snap)
+
+      // If the wand is part of a quantified expression
       if (s4.qpMagicWands.contains(MagicWandIdentifier(wand, s.program))) {
         val bodyVars = wand.subexpressionsToEvaluate(s.program)
         val formalVars = bodyVars.indices.toList.map(i => Var(Identifier(s"x$i"), v.symbolConverter.toSort(bodyVars(i).typ), false))
+
         evals(s4, bodyVars, _ => pve, v3)((s5, args, v4) => {
-          val (sm, smValueDef) =
-            quantifiedChunkSupporter.singletonSnapshotMap(s5, wand, args, MagicWandSnapshot(freshSnapRoot, snap), v4)
+          val (sm, smValueDef) = quantifiedChunkSupporter.singletonSnapshotMap(s5, wand, args, wandSnapshot, v4)
           v4.decider.prover.comment("Definitional axioms for singleton-SM's value")
           v4.decider.assumeDefinition(smValueDef)
           val ch = quantifiedChunkSupporter.createSingletonQuantifiedChunk(formalVars, wand, args, FullPerm, sm, s.program)
           appendToResults(s5, ch, v4.decider.pcs.after(preMark), v4)
           Success()
         })
+
       } else {
-        magicWandSupporter.createChunk(s4, wand, freshSnapRoot, snap, pve, v3)((s5, ch, v4) => {
+        magicWandSupporter.createChunk(s4, wand, wandSnapshot, pve, v3)((s5, ch, v4) => {
           say(s"done: create wand chunk: $ch")
           appendToResults(s5, ch, v4.decider.pcs.after(preMark), v4)
           Success()
@@ -303,13 +308,11 @@ object magicWandSupporter extends SymbolicExecutionRules {
     }
 
     val r = executionFlowController.locally(sEmp, v)((s1, v1) => {
-      /* Using conservingSnapshotGeneration a snapshot (binary tree) will be
-       * constructed using First/Second datatypes, that preserves the original root.
-       * The leafs of this tree will later appear in the snapshot of the rhs at the
-       * appropriate places. Thus equating freshSnapRoot with the snapshot received
-       * from consuming the lhs when applying the wand preserves values from the lhs
-       * into the rhs.
-       * => Meaning that the structure of the tree is the same??
+      /* A snapshot (binary tree) will be constructed using First/Second datatypes,
+       * that preserves the original root. The leafs of this tree will later appear
+       * in the snapshot of the RHS at the appropriate places. Thus equating
+       * `freshSnapRoot` with the snapshot received from consuming the LHS when
+       * applying the wand preserves values from the LHS into the RHS.
        */
       val freshSnapRoot = freshSnap(sorts.Snap, v1)
 
@@ -397,21 +400,12 @@ object magicWandSupporter extends SymbolicExecutionRules {
                (Q: (State, Verifier) => VerificationResult)
                : VerificationResult = {
 
-    // construct an arbitrary LHS that includes a fresh value for all fields that are on the wand's LHS
-    def generateArbitraryLhs(wandSnap: MagicWandSnapshot): Term = {
-      v.logger.debug(s"wandSnap: $wandSnap")
-      v.logger.debug(s"it is of sort ${wandSnap.sort}")
-      val freshSnapRoot = freshSnap(sorts.Snap, v)
-      v.logger.debug(s"freshSnapRoot $freshSnapRoot")
-      freshSnapRoot
-    }
-
-    // Consume the magic wand instance
+    // Consume the magic wand instance "A --* B"
     consume(s, wand, pve, v)((s1, snap, v1) => {
       // wrap snapshot inside MagicWandSnapshot class
       val wandSnap = MagicWandSnapshot(snap)
 
-      // Consume the wand's LHS
+      // Consume the wand's LHS "A"
       consume(s1, wand.left, pve, v1)((s2, snap, v2) => {
         /* It is assumed that snap and wandSnap.abstractLhs are structurally the same.
          * Since a wand can only be applied once, equating the two snapshots is sound.
@@ -427,28 +421,28 @@ object magicWandSupporter extends SymbolicExecutionRules {
         // assert x.f == x.f + 1
         v2.decider.prover.comment("Assume: snap === wandSnap.abstractLhs")
 
-        v2.logger.debug("")
-        v2.logger.debug(s"APPLY MAGIC WAND: ${wand.toString}")
-        v2.logger.debug(s"Snap: ${snap.toString}")
-        v2.logger.debug(s"wandSnap.abstractLhs: ${wandSnap.abstractLhs}")
-        v2.logger.debug(s"State: " + v.stateFormatter.format(s, v.decider.pcs))
-        v2.logger.debug("")
+        // v2.logger.debug("")
+        // v2.logger.debug(s"APPLY MAGIC WAND: ${wand.toString}")
+        // v2.logger.debug(s"Snap: ${snap.toString}")
+        // v2.logger.debug(s"wandSnap.abstractLhs: ${wandSnap.abstractLhs}")
+        // v2.logger.debug(s"wandSnap.map: ${wandSnap.rhsMap}")
+        // v2.logger.debug(s"State: " + v.stateFormatter.format(s, v.decider.pcs))
+        // v2.logger.debug("")
 
-        if (isApplying) {
-          v2.decider.assume(snap === wandSnap.abstractLhs)
-          // v2.decider.assume(snap === generateArbitraryLhs(wandSnap))
-        } else {
-          v2.decider.assume(snap === wandSnap.abstractLhs)
-        }
+        // if (!isApplying) {
+        //   v2.decider.assume(snap === wandSnap.abstractLhs)
+        // }
 
-        v2.decider.prover.comment("End Assume")
+        // v2.decider.assume(MapLookup(wandSnap.rhsMap, snap))
+
+        // v2.decider.prover.comment("End Assume")
 
         // Create copy of the state with a new labelled heap (i.e. `oldHeaps`) called "lhs"
         val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
 
         // Produce the wand's RHS
-        produce(s3.copy(conservingSnapshotGeneration = true), toSf(wandSnap.rhsSnapshot), wand.right, pve, v2)((s4, v3) => {
-          // Recreate old state from state only without the magic wand and the state with the oldHeap called lhs
+        produce(s3.copy(conservingSnapshotGeneration = true), toSf(MapLookup(wandSnap.rhsMap, snap)), wand.right, pve, v2)((s4, v3) => {
+          // Recreate old state without the magic wand, and the state with the oldHeap called lhs
           val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)
 
           // Consolidate: Merge as many known-alias chunks as possible and deduce properties from and about permissions.
