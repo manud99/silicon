@@ -65,21 +65,17 @@ class DefaultSnapshotSupporter(symbolConverter: SymbolConverter) extends Snapsho
 
       case ast.And(a1, a2) =>
         /* At least one of a1, a2 must be impure, otherwise ... */
-        getOptimalSnapshotSortFromPair(a1, a2, () => (sorts.Snap, false))
+        getOptimalSnapshotSortFromPair(a1, a2, (sorts.Snap, false))
 
       case ast.CondExp(_, a1, a2) =>
-        /* At least one of a1, a2 must be impure, otherwise ... */
-
-        def findCommonSort() = {
+        getOptimalSnapshotSortFromPair(a1, a2, {
           val (s1, isPure1) = optimalSnapshotSort(a1, program, visited)
           val (s2, isPure2) = optimalSnapshotSort(a2, program, visited)
           val s = if (s1 == s2) s1 else sorts.Snap
           val isPure = isPure1 && isPure2
-          assert(!isPure)
+          assert(!isPure) // At least one of a1, a2 must be impure
           (s, isPure)
-        }
-
-        getOptimalSnapshotSortFromPair(a1, a2, () => findCommonSort())
+        })
 
       case QuantifiedPermissionAssertion(_, _, acc: ast.FieldAccessPredicate) =>
         (sorts.FieldValueFunction(symbolConverter.toSort(acc.loc.field.typ), acc.loc.field.name), false)
@@ -90,10 +86,10 @@ class DefaultSnapshotSupporter(symbolConverter: SymbolConverter) extends Snapsho
 
   private def getOptimalSnapshotSortFromPair(a1: ast.Exp,
                                              a2: ast.Exp,
-                                             fIfBothPure: () => (Sort, Boolean))
+                                             fIfBothPure: => (Sort, Boolean))
                                             : (Sort, Boolean) = {
 
-    if (a1.isPure && a2.isPure) fIfBothPure()
+    if (a1.isPure && a2.isPure) fIfBothPure
     else (sorts.Snap, false)
   }
 
