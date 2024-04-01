@@ -73,6 +73,7 @@ class DefaultMainVerifier(config: Config,
   protected val fieldValueFunctionsContributor = new DefaultFieldValueFunctionsContributor(preambleReader, symbolConverter, termConverter, config)
   protected val predSnapGenerator = new PredicateSnapGenerator(symbolConverter, snapshotSupporter)
   protected val predicateAndWandSnapFunctionsContributor = new DefaultPredicateAndWandSnapFunctionsContributor(preambleReader, termConverter, predSnapGenerator, config)
+  protected val magicWandContributor = new DefaultMagicWandContributor(domainTranslator, config)
 
   private val _verificationPoolManager: VerificationPoolManager = new VerificationPoolManager(this)
   def verificationPoolManager: VerificationPoolManager = _verificationPoolManager
@@ -440,7 +441,8 @@ class DefaultMainVerifier(config: Config,
     fieldValueFunctionsContributor,
     predicateAndWandSnapFunctionsContributor,
     functionsSupporter,
-    predicateSupporter
+    predicateSupporter,
+    magicWandContributor
   )
 
   private val sortDeclarationOrder: Seq[PreambleContributor[_, _, _]] = Seq(
@@ -452,7 +454,8 @@ class DefaultMainVerifier(config: Config,
     fieldValueFunctionsContributor,
     predicateAndWandSnapFunctionsContributor,
     functionsSupporter,
-    predicateSupporter
+    predicateSupporter,
+    magicWandContributor
   )
 
   private val sortWrapperDeclarationOrder: Seq[PreambleContributor[Sort, _, _]] = Seq(
@@ -464,7 +467,8 @@ class DefaultMainVerifier(config: Config,
     fieldValueFunctionsContributor,
     predicateAndWandSnapFunctionsContributor,
     functionsSupporter,
-    predicateSupporter
+    predicateSupporter,
+    magicWandContributor
   )
 
   private val symbolDeclarationOrder: Seq[PreambleContributor[_, _, _]] = Seq(
@@ -481,7 +485,8 @@ class DefaultMainVerifier(config: Config,
     fieldValueFunctionsContributor,
     predicateAndWandSnapFunctionsContributor,
     functionsSupporter,
-    predicateSupporter
+    predicateSupporter,
+    magicWandContributor
   )
 
   private val axiomDeclarationOrder: Seq[PreambleContributor[Sort, _, _]] = Seq(
@@ -493,7 +498,8 @@ class DefaultMainVerifier(config: Config,
     fieldValueFunctionsContributor,
     predicateAndWandSnapFunctionsContributor,
     functionsSupporter,
-    predicateSupporter
+    predicateSupporter,
+    magicWandContributor
   )
 
   private def analyzeProgramAndEmitPreambleContributions(program: ast.Program, sink: ProverLike) = {

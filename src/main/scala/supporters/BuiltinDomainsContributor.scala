@@ -57,7 +57,7 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
 
   def analyze(program: ast.Program): Unit = {
     val builtinDomainTypeInstances = computeGroundTypeInstances(program)
-    val sourceProgram = utils.loadProgramFromUrl(sourceUrl)
+    val sourceProgram = loadProgramFromUrl(sourceUrl)
     val sourceDomain = transformSourceDomain(sourceProgram.findDomain(sourceDomainName))
 
     val sourceDomainTypeInstances =
@@ -90,6 +90,8 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     collectSorts(sourceDomainTypeInstances)
     collectFunctions(sourceDomainInstantiations, program)
     collectAxioms(sourceDomainInstantiationsWithType)
+
+    assert(true)
   }
 
   protected def computeGroundTypeInstances(program: ast.Program): InsertionOrderedSet[BuiltinDomainType] =
@@ -129,7 +131,7 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
      * are preserved.
      */
     val domainName = f"${d.domainName}[${d.typVarsMap.values.map(t => symbolConverter.toSort(t)).mkString(",")}]"
-    domainTranslator.translateAxiom(ax, symbolConverter.toSort, true).transform {
+    domainTranslator.translateAxiom(ax, symbolConverter.toSort, builtin = true).transform {
       case q@Quantification(_,_,_,_,name,_,_) if name != "" =>
         q.copy(name = f"${domainName}_${name}")
       case Equals(t1, t2) => BuiltinEquals(t1, t2)
@@ -156,27 +158,15 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
   }
 
   def updateGlobalStateAfterAnalysis(): Unit = { /* Nothing to contribute*/ }
-}
 
-class BuiltinDomainAwareSymbolConverter(sourceDomainName: String,
-                                        targetSortFactory: Iterable[Sort] => Sort)
-    extends DefaultSymbolConverter {
+  /* Utility */
 
-  override def toSort(typ: ast.Type): Sort = typ match {
-    case dt: ast.DomainType if dt.domainName == sourceDomainName =>
-      targetSortFactory(dt.typVarsMap.values map toSort)
-    case other =>
-      super.toSort(other)
-  }
-}
-
-private object utils {
-  def loadProgramFromResource(resource: String): ast.Program = {
-    loadProgramFromUrl(getClass.getResource(resource))
-  }
+  // def loadProgramFromResource(resource: String): ast.Program = {
+  //   loadProgramFromUrl(getClass.getResource(resource))
+  // }
 
   // TODO: Check that Silver's parser doesn't already provide suitable functionality.
-  def loadProgramFromUrl(url: URL): ast.Program = {
+  protected def loadProgramFromUrl(url: URL): ast.Program = {
     assert(url != null, s"Unexpectedly found sourceUrl == null")
 
     val fromPath = viper.silver.utility.Paths.pathFromResource(url)
@@ -202,5 +192,17 @@ private object utils {
     val program = translator.translate.get
 
     program
+  }
+}
+
+class BuiltinDomainAwareSymbolConverter(sourceDomainName: String,
+                                        targetSortFactory: Iterable[Sort] => Sort)
+    extends DefaultSymbolConverter {
+
+  override def toSort(typ: ast.Type): Sort = typ match {
+    case dt: ast.DomainType if dt.domainName == sourceDomainName =>
+      targetSortFactory(dt.typVarsMap.values map toSort)
+    case other =>
+      super.toSort(other)
   }
 }
