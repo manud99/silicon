@@ -31,13 +31,13 @@ class DefaultStateFormatter extends StateFormatter {
     val oldHeapsStr = format(s.oldHeaps)
 
     val pcsStr =
-      if (SiliconRunner.logger.isTraceEnabled())
+      // if (SiliconRunner.logger.isTraceEnabled())
         /* TODO: It would be better if the choice between whether or not to include path
          *       conditions in the output were made when instantiating the state formatter
          */
         s"${format(pcs)}\n"
-      else
-        ""
+      // else
+      //   ""
 
     s"""  Store: $gStr,
        |  Heap: $hStr,
@@ -45,8 +45,8 @@ class DefaultStateFormatter extends StateFormatter {
        |  Path Conditions: $pcsStr""".stripMargin
   }
 
-  def format(g: Store): String = g.values.mkString("(", ", ", ")")
-  def format(h: Heap): String = h.values.mkString("(", ", ", ")")
+  def format(g: Store): String = g.values.mkString("(", ",\n    ", ")")
+  def format(h: Heap): String = h.values.mkString("(", ",\n    ", ")")
 
   def format(oldHeaps: OldHeaps): String = {
     oldHeaps.map{case (id, h) => s"$id: ${format(h)}"}.mkString("(", ",\n    ", ")")
@@ -60,7 +60,7 @@ class DefaultStateFormatter extends StateFormatter {
            => true
       case Not(BuiltinEquals(_, Null)) => true
       case _ => false
-    }.mkString("(", ", ", ")")
+    }.mkString("(", ",\n    ", ")")
   }
 
   //Methods for SymbexLogger

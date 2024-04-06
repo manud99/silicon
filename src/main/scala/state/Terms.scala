@@ -2069,7 +2069,7 @@ class MapLookup private[terms] (val base: Term, val key: Term) extends Term with
   val sort: Sort = p0.sort.asInstanceOf[sorts.Map].valueSort
   override def p0: Term = base
   override def p1: Term = key
-  override lazy val toString = s"$p0[$p1]"
+  override lazy val toString = s"MapLookup(map = $p0; key = $p1)"
 }
 
 object MapLookup extends PreciseCondFlyweightFactory[(Term, Term), MapLookup] {
@@ -2295,9 +2295,9 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
 
 /* Magic wands */
 
-class MagicWandSnapshot(val rhsMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
+class MagicWandSnapshot(val wandMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
   // utils.assertSort(abstractLhs, "abstract lhs", sorts.Snap)
-  utils.assertSort(rhsMap, "rhs map", sorts.Map(sorts.Snap, sorts.Snap))
+  utils.assertSort(wandMap, "wand map", sorts.Map(sorts.Snap, sorts.Snap))
 // class MagicWandSnapshot(val map: Term) extends SnapshotTerm {
   // Map from Snap to Snap
 //  utils.assertSort(map, "map", sorts.Map)
@@ -2306,21 +2306,22 @@ class MagicWandSnapshot(val rhsMap: Term) extends SnapshotTerm with ConditionalF
 
 //  override lazy val toString = s"wandSnap(map $map)"
 
-  override lazy val toString = s"wandSnap(rhsMap = $rhsMap)"
+  override lazy val toString = s"wandSnap(wandMap = $wandMap)"
 
-  def merge(other: MagicWandSnapshot, branchConditions: Stack[Term]): MagicWandSnapshot = {
+  // NOTE: Unused function
+  // def merge(other: MagicWandSnapshot, branchConditions: Stack[Term]): MagicWandSnapshot = {
     // assert(this.abstractLhs == other.abstractLhs)
-    val condition = And(branchConditions)
+    // val condition = And(branchConditions)
     // TODO: Merge the two maps and find test cases to test this
-    val mergedMap = this.rhsMap
-    MagicWandSnapshot(mergedMap)
-//    MagicWandSnapshot(this.abstractLhs, if (this.rhsSnapshot == other.rhsSnapshot)
-//      this.rhsSnapshot
-//    else
-//      Ite(condition, other.rhsSnapshot, this.rhsSnapshot))
-  }
+    // val mergedMap = wandMap
+    // MagicWandSnapshot(mergedMap)
+  //    MagicWandSnapshot(this.abstractLhs, if (this.rhsSnapshot == other.rhsSnapshot)
+  //      this.rhsSnapshot
+  //    else
+  //      Ite(condition, other.rhsSnapshot, this.rhsSnapshot))
+  //   }
 
-  override val equalityDefiningMembers: Term = rhsMap
+  override val equalityDefiningMembers: Term = wandMap
 }
 
 object MagicWandSnapshot  {
@@ -2351,12 +2352,12 @@ object MagicWandSnapshot  {
     // this map should take First(snapshot) as key and merge them with Second(snapshot)
     // the abstractLhs already defines a fresh variable that we can use to define the relation between LHS and RHS.
     // So, to start with I simply try to build a map which takes such a LHS and returns the given RHS.
-    // There is the chance, that this results in the same unsoudness as the old implementation, but I think it is worth a try.
+    // There is the chance, that this results in the same unsoundness as the old implementation, but I think it is worth a try.
     val map = MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot))
     new MagicWandSnapshot(map)
   }
 
-  def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.rhsMap)
+  def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.wandMap)
 }
 
 class MagicWandChunkTerm(val chunk: MagicWandChunk) extends Term with ConditionalFlyweight[MagicWandChunk, MagicWandChunkTerm] {
