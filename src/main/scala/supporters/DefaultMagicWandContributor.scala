@@ -25,12 +25,14 @@ import viper.silicon.supporters.PredicateData
 import viper.silicon.verifier.{Verifier, VerifierComponent}
 import viper.silicon.utils.{freshSnap, toSf}
 import viper.silicon.utils.ast.ViperEmbedding
-import viper.silver.ast.{DomainFunc, DomainAxiom, MagicWand, Program, TypeVar}
+import viper.silver.ast.{AbstractLocalVar, AccessPredicate, Applying, BinExp, CondExp, DomainAxiom, DomainFunc, Exists, ExtensionExp, ForPerm, Forall, ForbiddenInTrigger, FuncLikeApp, InhaleExhaleExp, Lhs, LocationAccess, MagicWand, MapExp, MultisetExp, PermExp, PossibleTrigger, Program, QuantifiedExp, ResourceAccess, SeqExp, SetExp, TypeVar, UnExp, Unfolding}
 
+import scala.collection.immutable.{ListSet, Map}
 import scala.reflect.{ClassTag, classTag}
 
 class DefaultMagicWandContributor(override val domainTranslator: DomainsTranslator[Term], config: Config)
-  extends DefaultMapsContributor(domainTranslator, config) {
+  extends DefaultMapsContributor(domainTranslator, config)
+    with ExpressionTranslator {
 
   private var collectedSorts: InsertionOrderedSet[Sort] = InsertionOrderedSet.empty
   private var collectedFunctions = InsertionOrderedSet[DomainFun]()
@@ -47,6 +49,21 @@ class DefaultMagicWandContributor(override val domainTranslator: DomainsTranslat
     val sourceProgram = loadProgramFromUrl(sourceUrl)
     val sourceDomain = transformSourceDomain(sourceProgram.findDomain(sourceDomainName))
 
+    val instantiation = sourceDomain.typVars.zip(List(ViperEmbedding(sorts.Snap), ViperEmbedding(sorts.Snap))).toMap
+    val typeInstances = ListSet(ast.DomainType(sourceDomain, instantiation))
+    val instantiationsWithType = instantiateWithDomain(sourceProgram, sourceDomain, typeInstances)
+
+    collectSorts(typeInstances)
+    collectFunctions(instantiationsWithType, program)
+    collectAxioms(instantiationsWithType)
+    // val sourceDomainTypeInstances =
+    //   builtinDomainTypeInstances map (builtinTypeInstance => {
+    //     val instantiation : Map[viper.silver.ast.TypeVar,viper.silver.ast.Type] = sourceDomain.typVars.zip(builtinTypeInstance.typeArguments).toMap
+    //     //(instantiation, ast.DomainType(sourceDomain, instantiation))
+    //     ast.DomainType(sourceDomain, instantiation)
+    //   })
+
+    /*
     // Convert generic functions to functions which take $Snap as input and output
     val functions = sourceDomain.functions.map((function: DomainFunc) => {
       val inSorts = function.formalArgs.map(_.typ).map {
@@ -54,32 +71,74 @@ class DefaultMagicWandContributor(override val domainTranslator: DomainsTranslat
         case _ => sorts.Snap
       }
       val outSort = sorts.Snap
-      symbolConverter.toFunction(function, inSorts :+ outSort, sourceProgram)
+      symbolConverter.toFunction(function, inSorts :+ outSort, program)
     })
     collectedFunctions = InsertionOrderedSet(functions)
 
     // TODO: Convert all axioms to take $Snap arguments
     val axioms = sourceDomain.axioms.map((axiom: DomainAxiom) => {
-
+      axiom.exp match {
+        case predicate: AccessPredicate => ???
+        case InhaleExhaleExp(in, ex) => ???
+        case exp: PermExp => ???
+        case access: LocationAccess => ???
+        case access: ResourceAccess => ???
+        case CondExp(cond, thn, els) => ???
+        case Unfolding(acc, body) => ???
+        case Applying(wand, body) => ???
+        case ast.Let(variable, exp, body) => ???
+        case exp: QuantifiedExp => {
+          exp match {
+            case Forall(vars, triggers, body) => {
+              terms.Quantification(terms.Forall,
+                vars.map(_.localVar) map (v => Var(Identifier(v.name), sorts.Snap, false)),
+                translate(symbolConverter.toSort)(body),
+                triggers map ((triggerSet: ast.Trigger) => terms.Trigger(triggerSet.exps map (trigger => translate(symbolConverter.toSort)(trigger)))),
+                "",
+                isGlobal = false,
+                None
+              )
+            }
+            case Exists(variables, triggers, exp) => ???
+            case ForPerm(variables, resource, body) => ???
+          }
+        }
+        case ForPerm(variables, resource, body) => ???
+        case localVar: AbstractLocalVar => ???
+        case exp: SeqExp => ???
+        case exp: SetExp => ???
+        case exp: MultisetExp => ???
+        case exp: MapExp => ???
+        case literal: ast.Literal => ???
+        case trigger: PossibleTrigger => ???
+        case trigger: ForbiddenInTrigger => ???
+        case app: FuncLikeApp => ???
+        case exp: BinExp => ???
+        case exp: UnExp => ???
+        case lhs: Lhs => ???
+        case exp: ExtensionExp => ???
+      }
     })
+    */
     assert(true)
   }
 
-  override def sortsAfterAnalysis: InsertionOrderedSet[Sort] = InsertionOrderedSet(Seq(sorts.Set(sorts.Snap), sorts.Map(sorts.Snap, sorts.Snap)))
+  // override def sortsAfterAnalysis: InsertionOrderedSet[Sort] = collectedSorts
+  // override def sortsAfterAnalysis: InsertionOrderedSet[Sort] = InsertionOrderedSet(Seq(sorts.Set(sorts.Snap), sorts.Map(sorts.Snap, sorts.Snap)))
 
-  override def declareSortsAfterAnalysis(sink: ProverLike): Unit = {
-    sortsAfterAnalysis foreach (s => sink.declare(SortDecl(s)))
-  }
+  // override def declareSortsAfterAnalysis(sink: ProverLike): Unit = {
+  //   sortsAfterAnalysis foreach (s => sink.declare(SortDecl(s)))
+  // }
 
-  override def symbolsAfterAnalysis: InsertionOrderedSet[DomainFun] = collectedFunctions
+  // override def symbolsAfterAnalysis: InsertionOrderedSet[DomainFun] = collectedFunctions
 
-  override def declareSymbolsAfterAnalysis(sink: ProverLike): Unit = {
-    symbolsAfterAnalysis foreach (f => sink.declare(FunctionDecl(f)))
-  }
+  // override def declareSymbolsAfterAnalysis(sink: ProverLike): Unit = {
+  //   symbolsAfterAnalysis foreach (f => sink.declare(FunctionDecl(f)))
+  // }
 
-  override def axiomsAfterAnalysis: Iterable[Term] = Seq.empty
+  // override def axiomsAfterAnalysis: Iterable[Term] = collectedAxioms
 
-  override def emitAxiomsAfterAnalysis(sink: ProverLike): Unit = ()
+  // override def emitAxiomsAfterAnalysis(sink: ProverLike): Unit = ()
 
   override def start(): Unit = {}
 

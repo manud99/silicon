@@ -8,7 +8,6 @@ package viper.silicon.supporters
 
 import java.io.File
 import java.net.URL
-
 import scala.annotation.unused
 import scala.reflect.ClassTag
 import viper.silver.ast
@@ -17,6 +16,7 @@ import viper.silicon.interfaces.PreambleContributor
 import viper.silicon.interfaces.decider.ProverLike
 import viper.silicon.state.DefaultSymbolConverter
 import viper.silicon.state.terms._
+import viper.silver.ast.DomainType
 
 abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, DomainFun, Term] {
   type BuiltinDomainType <: ast.GenericType
@@ -60,35 +60,17 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     val sourceProgram = loadProgramFromUrl(sourceUrl)
     val sourceDomain = transformSourceDomain(sourceProgram.findDomain(sourceDomainName))
 
+    // List of all domains found in the program with their instantiations, i.e. the types they are used with
     val sourceDomainTypeInstances =
       builtinDomainTypeInstances map (builtinTypeInstance => {
-        val instantiation : Map[viper.silver.ast.TypeVar,viper.silver.ast.Type] = sourceDomain.typVars.zip(builtinTypeInstance.typeArguments).toMap
-        //(instantiation, ast.DomainType(sourceDomain, instantiation))
+        val instantiation: Map[viper.silver.ast.TypeVar, viper.silver.ast.Type] = sourceDomain.typVars.zip(builtinTypeInstance.typeArguments).toMap
         ast.DomainType(sourceDomain, instantiation)
       })
 
-    /* For each necessary domain type, instantiate the corresponding domain */
-    val sourceDomainInstantiationsWithType =
-      sourceDomainTypeInstances map (mdt => {
-        /* TODO: Copied from DomainInstances.getInstanceMembers.
-         *       Cannot directly use that because it filters according to which domain instances
-         *       are used in the program from which the source domain was loaded, whereas the
-         *       instances should be filtered according to which are used in the program under
-         *       verification.
-         */
-        val functions = sourceDomain.functions.map(ast.utility.DomainInstances.substitute(_, mdt.typVarsMap, sourceProgram)).distinct
-        val axioms = sourceDomain.axioms.map(ast.utility.DomainInstances.substitute(_, mdt.typVarsMap, sourceProgram)).distinct
-
-        val instance =
-          sourceDomain.copy(functions = functions, axioms = axioms)(sourceDomain.pos, sourceDomain.info, sourceDomain.errT)
-
-        (mdt, transformSourceDomainInstance(instance, mdt))
-      })
-
-    val sourceDomainInstantiations = sourceDomainInstantiationsWithType.map(x => x._2)
+    val sourceDomainInstantiationsWithType = instantiateWithDomain(sourceProgram, sourceDomain, sourceDomainTypeInstances)
 
     collectSorts(sourceDomainTypeInstances)
-    collectFunctions(sourceDomainInstantiations, program)
+    collectFunctions(sourceDomainInstantiationsWithType, program)
     collectAxioms(sourceDomainInstantiationsWithType)
 
     assert(true)
@@ -98,6 +80,26 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     InsertionOrderedSet(program.groundTypeInstances.collect {
       case builtinDomainTypeTag(s) => s
     })
+
+  /**
+   * For each necessary domain type, instantiate the corresponding domain
+   */
+  protected def instantiateWithDomain(sourceProgram: ast.Program, sourceDomain: ast.Domain, sourceDomainTypeInstances: InsertionOrderedSet[DomainType]): Set[(ast.DomainType, ast.Domain)] = {
+    sourceDomainTypeInstances map (domainType => {
+      /* TODO: Copied from DomainInstances.getInstanceMembers.
+       *       Cannot directly use that because it filters according to which domain instances
+       *       are used in the program from which the source domain was loaded, whereas the
+       *       instances should be filtered according to which are used in the program under
+       *       verification.
+       */
+      val functions = sourceDomain.functions.map(ast.utility.DomainInstances.substitute(_, domainType.typVarsMap, sourceProgram)).distinct
+      val axioms = sourceDomain.axioms.map(ast.utility.DomainInstances.substitute(_, domainType.typVarsMap, sourceProgram)).distinct
+
+      val instance = sourceDomain.copy(functions = functions, axioms = axioms)(sourceDomain.pos, sourceDomain.info, sourceDomain.errT)
+
+      (domainType, transformSourceDomainInstance(instance, domainType))
+    })
+  }
 
   protected def transformSourceDomain(sourceDomain: ast.Domain): ast.Domain = sourceDomain
 
@@ -112,9 +114,9 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     })
   }
 
-  protected def collectFunctions(domains: Set[ast.Domain], program: ast.Program): Unit = {
-    domains foreach (
-      _.functions foreach (df =>
+  protected def collectFunctions(domains: Set[(ast.DomainType, ast.Domain)], program: ast.Program): Unit = {
+    domains foreach (d =>
+      d._2.functions foreach (df =>
         if (df.interpretation.isEmpty)
           collectedFunctions += symbolConverter.toFunction(df, program).asInstanceOf[DomainFun]))
   }
@@ -148,13 +150,13 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     collectedFunctions
 
   def declareSymbolsAfterAnalysis(sink: ProverLike): Unit = {
-    collectedFunctions foreach (f => sink.declare(FunctionDecl(f)))
+    symbolsAfterAnalysis foreach (f => sink.declare(FunctionDecl(f)))
   }
 
   def axiomsAfterAnalysis: Iterable[Term] = collectedAxioms
 
   def emitAxiomsAfterAnalysis(sink: ProverLike): Unit = {
-    collectedAxioms foreach (ax => sink.assume(ax))
+    axiomsAfterAnalysis foreach (ax => sink.assume(ax))
   }
 
   def updateGlobalStateAfterAnalysis(): Unit = { /* Nothing to contribute*/ }
