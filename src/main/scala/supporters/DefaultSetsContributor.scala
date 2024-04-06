@@ -68,7 +68,9 @@ class DefaultSetsContributor(val domainTranslator: DomainsTranslator[Term], conf
     }.flatten
 
     // Packaging and applying magic wands depends on Sets of type [[viper.silicon.state.terms.sorts.Snap]]
-    setTypeInstances ++= InsertionOrderedSet(Set(ast.SetType(ViperEmbedding(sorts.Snap))))
+    if (program.existsDefined { case ast.MagicWand(_, _) => true }) {
+      setTypeInstances ++= InsertionOrderedSet(Set(ast.SetType(ViperEmbedding(sorts.Snap))))
+    }
 
     setTypeInstances
   }

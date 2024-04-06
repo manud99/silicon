@@ -72,8 +72,6 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     collectSorts(sourceDomainTypeInstances)
     collectFunctions(sourceDomainInstantiationsWithType, program)
     collectAxioms(sourceDomainInstantiationsWithType)
-
-    assert(true)
   }
 
   protected def computeGroundTypeInstances(program: ast.Program): InsertionOrderedSet[BuiltinDomainType] =
@@ -84,7 +82,7 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
   /**
    * For each necessary domain type, instantiate the corresponding domain
    */
-  protected def instantiateWithDomain(sourceProgram: ast.Program, sourceDomain: ast.Domain, sourceDomainTypeInstances: InsertionOrderedSet[DomainType]): Set[(ast.DomainType, ast.Domain)] = {
+  private def instantiateWithDomain(sourceProgram: ast.Program, sourceDomain: ast.Domain, sourceDomainTypeInstances: InsertionOrderedSet[DomainType]): Set[(ast.DomainType, ast.Domain)] = {
     sourceDomainTypeInstances map (domainType => {
       /* TODO: Copied from DomainInstances.getInstanceMembers.
        *       Cannot directly use that because it filters according to which domain instances
@@ -159,13 +157,7 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
     axiomsAfterAnalysis foreach (ax => sink.assume(ax))
   }
 
-  def updateGlobalStateAfterAnalysis(): Unit = { /* Nothing to contribute*/ }
-
   /* Utility */
-
-  // def loadProgramFromResource(resource: String): ast.Program = {
-  //   loadProgramFromUrl(getClass.getResource(resource))
-  // }
 
   // TODO: Check that Silver's parser doesn't already provide suitable functionality.
   protected def loadProgramFromUrl(url: URL): ast.Program = {
