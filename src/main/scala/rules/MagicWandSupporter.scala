@@ -221,12 +221,12 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     def dosay(prefix: String, msg: String, ident: Int): Unit = {
       if (!printedHeader) {
-        v.logger.debug(s"\n[packageWand $myId]")
+        v.logger.trace(s"\n[packageWand $myId]")
         printedHeader = true
       }
 
       val messagePrefix = baseIdent * ident
-      v.logger.debug(s"$prefix$messagePrefix $msg")
+      v.logger.trace(s"$prefix$messagePrefix $msg")
     }
 
     val s = if (state.exhaleExt) state else
@@ -282,7 +282,11 @@ object magicWandSupporter extends SymbolicExecutionRules {
                                        : VerificationResult = {
       val preMark = v3.decider.setPathConditionMark()
       v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
-      val wandSnapshot = MagicWandSnapshot(freshSnapRoot, snap)
+      // Problem: Need to move the creation of the magic wand into a wider scope, so that the snapshot can be used in the applyWand method.
+      // TODO: Find better solution for this dirty hack. I guess there are problems when this is not the final wand => examples?
+      v3.decider.popScope()
+      val wandSnapshot = createMagicWandSnapshot(freshSnapRoot, snap, v3)
+      v3.decider.pushScope()
 
       // If the wand is part of a quantified expression
       if (s4.qpMagicWands.contains(MagicWandIdentifier(wand, s.program))) {
@@ -365,6 +369,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
       })
     })
 
+    v.logger.trace(s"\npackageWand -> results (${results.length}): $results\n")
     if (results.isEmpty) {
       // No results mean that packaging the wand resulted in inconsistent states on all paths,
       // and thus, that no wand chunk was created. In order to continue, we create one now.
@@ -403,6 +408,8 @@ object magicWandSupporter extends SymbolicExecutionRules {
     // Consume the magic wand instance "A --* B"
     consume(s, wand, pve, v)((s1, snap, v1) => {
       // wrap snapshot inside MagicWandSnapshot class
+      // for now: assuming that snap is already a MagicWandSnapshot
+      // TODO: Adapt this to situations where we inhale a magic wand and get a normal snapshot here
       val wandSnap = MagicWandSnapshot(snap)
 
       // Consume the wand's LHS "A"
@@ -438,18 +445,18 @@ object magicWandSupporter extends SymbolicExecutionRules {
         // v2.decider.prover.comment("End Assume")
 
         // Define wand for all possible snapshots
-        // TODO Maybe move this to the creation of a magic wand in [[MagicWandSnapshot]]
-        v2.decider.prover.comment("Give wandMap a shorter name and say it is defined for all snaps")
-        val tempKey = v2.decider.fresh(sorts.Snap)
-        val wandMap = v2.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
-        v2.decider.assume(wandMap === wandSnap.wandMap)
-        v2.decider.assume(Forall(tempKey, SetIn(tempKey, MapDomain(wandMap)), Trigger(tempKey)))
+        // Moved this to the creation of a magic wand in [[MagicWandSnapshot]]
+        // v2.decider.prover.comment("Give wandMap a shorter name and say it is defined for all snaps")
+        // val tempKey = v2.decider.fresh(sorts.Snap)
+        // val wandMap = v2.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
+        // v2.decider.assume(wandMap === wandSnap.wandMap)
+        // v2.decider.assume(Forall(tempKey, SetIn(tempKey, MapDomain(wandMap)), Trigger(tempKey)))
 
         // Create copy of the state with a new labelled heap (i.e. `oldHeaps`) called "lhs"
         val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
 
         // Produce the wand's RHS
-        produce(s3.copy(conservingSnapshotGeneration = true), toSf(MapLookup(wandMap, snap)), wand.right, pve, v2)((s4, v3) => {
+        produce(s3.copy(conservingSnapshotGeneration = true), toSf(MapLookup(wandSnap.wandMap, snap)), wand.right, pve, v2)((s4, v3) => {
           // Recreate old state without the magic wand, and the state with the oldHeap called lhs
           val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)
 
@@ -546,4 +553,27 @@ object magicWandSupporter extends SymbolicExecutionRules {
       s.reserveCfgs.head.outEdges(b)
     else
       s.methodCfg.outEdges(b)
+
+  /**
+   * Define wand for all possible snapshots.
+   *
+   * @param abstractLhs Logic variable representing the abstract left hand side of the wand.
+   * @param rhsSnapshot Snapshot of the right hand side of the wand which implements values from the left hand side at the appropriate places.
+   * @param v Verifier with which a variable is created in the current context.
+   * @return The snapshot of the wand.
+   */
+  def createMagicWandSnapshot(abstractLhs: Term, rhsSnapshot: Term, v: Verifier): MagicWandSnapshot = {
+    v.decider.prover.comment("Create new magic wand snapshot map")
+
+    // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand, and relates it to the snapshot of the RHS.
+    // We use this to preserve values of the LHS in the RHS snapshot.
+    val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
+    v.decider.assume(wandMap === MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot)))
+
+    // Define wand for all possible snapshots, i.e. all snapshots lie in the domain of the wandMap.
+    val tempKey = v.decider.fresh(sorts.Snap)
+    v.decider.assume(Forall(tempKey, SetIn(tempKey, MapDomain(wandMap)), Trigger(MapLookup(wandMap, tempKey))))
+
+    MagicWandSnapshot(wandMap)
+  }
 }

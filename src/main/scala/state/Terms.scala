@@ -2331,31 +2331,45 @@ object MagicWandSnapshot  {
    */
   var pool = new TrieMap[(Term, Term), MagicWandSnapshot]()
 
+  /**
+   * Wrap a map from Snap to Snap into a MagicWandSnapshot.
+   *
+   * See helper method: [[viper.silicon.rules.magicWandSupporter.createMagicWandSnapshot]]
+   *
+   * @param wandMap The variable to a map from Snap to Snap.
+   * @return The resulting MagicWandSnapshot instance.
+   */
   def apply(snapshot: Term): MagicWandSnapshot = {
-    assert(snapshot.sort == sorts.Snap)
     snapshot match {
-      case snap: MagicWandSnapshot => snap
-      case _ => createSnapshot(First(snapshot), Second(snapshot))
+      case snap: MagicWandSnapshot => {
+        assert(snapshot.sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${snapshot.sort}")
+        snap
+      }
+      case wandMap: Var => {
+        utils.assertSort(wandMap, "wandMap", sorts.Map(sorts.Snap, sorts.Snap))
+        new MagicWandSnapshot(wandMap)
+      }
+      // case _ => createSnapshot(First(snapshot), Second(snapshot))
     }
   }
 
-  def apply(abstractLhs: Term, rhsSnapshot: Term): MagicWandSnapshot = {
-    if (Verifier.config.useFlyweight) {
-      pool.getOrElseUpdate((abstractLhs, rhsSnapshot), createSnapshot(abstractLhs, rhsSnapshot))
-    } else {
-      createSnapshot(abstractLhs, rhsSnapshot)
-    }
-  }
+  // def apply(abstractLhs: Term, rhsSnapshot: Term): MagicWandSnapshot = {
+  //   if (Verifier.config.useFlyweight) {
+  //     pool.getOrElseUpdate((abstractLhs, rhsSnapshot), createSnapshot(abstractLhs, rhsSnapshot))
+  //   } else {
+  //     createSnapshot(abstractLhs, rhsSnapshot)
+  //   }
+  // }
 
-  private def createSnapshot(abstractLhs: Term, rhsSnapshot: Term) = {
-    // TODO: create map out of Second(snapshot)
-    // this map should take First(snapshot) as key and merge them with Second(snapshot)
-    // the abstractLhs already defines a fresh variable that we can use to define the relation between LHS and RHS.
-    // So, to start with I simply try to build a map which takes such a LHS and returns the given RHS.
-    // There is the chance, that this results in the same unsoundness as the old implementation, but I think it is worth a try.
-    val map = MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot))
-    new MagicWandSnapshot(map)
-  }
+  // private def createSnapshot(abstractLhs: Term, rhsSnapshot: Term) = {
+  //   // TODO: create map out of Second(snapshot)
+  //   // this map should take First(snapshot) as key and merge them with Second(snapshot)
+  //   // the abstractLhs already defines a fresh variable that we can use to define the relation between LHS and RHS.
+  //   // So, to start with I simply try to build a map which takes such a LHS and returns the given RHS.
+  //   // There is the chance, that this results in the same unsoundness as the old implementation, but I think it is worth a try.
+  //   val map = MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot))
+  //   new MagicWandSnapshot(map)
+  // }
 
   def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.wandMap)
 }
