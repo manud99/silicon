@@ -562,17 +562,13 @@ object magicWandSupporter extends SymbolicExecutionRules {
    * @param v Verifier with which a variable is created in the current context.
    * @return The snapshot of the wand.
    */
-  def createMagicWandSnapshot(abstractLhs: Term, rhsSnapshot: Term, v: Verifier): MagicWandSnapshot = {
+  def createMagicWandSnapshot(abstractLhs: Var, rhsSnapshot: Term, v: Verifier): MagicWandSnapshot = {
     v.decider.prover.comment("Create new magic wand snapshot map")
 
     // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand, and relates it to the snapshot of the RHS.
     // We use this to preserve values of the LHS in the RHS snapshot.
     val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
-    v.decider.assume(wandMap === MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot)))
-
-    // Define wand for all possible snapshots, i.e. all snapshots lie in the domain of the wandMap.
-    val tempKey = v.decider.fresh(sorts.Snap)
-    v.decider.assume(Forall(tempKey, SetIn(tempKey, MapDomain(wandMap)), Trigger(MapLookup(wandMap, tempKey))))
+    v.decider.assume(Forall(abstractLhs, MapLookup(wandMap, abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
 
     MagicWandSnapshot(wandMap)
   }
