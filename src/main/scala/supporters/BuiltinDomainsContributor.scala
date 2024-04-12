@@ -160,7 +160,7 @@ abstract class BuiltinDomainsContributor extends PreambleContributor[Sort, Domai
   /* Utility */
 
   // TODO: Check that Silver's parser doesn't already provide suitable functionality.
-  protected def loadProgramFromUrl(url: URL): ast.Program = {
+  private def loadProgramFromUrl(url: URL): ast.Program = {
     assert(url != null, s"Unexpectedly found sourceUrl == null")
 
     val fromPath = viper.silver.utility.Paths.pathFromResource(url)

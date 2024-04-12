@@ -2069,7 +2069,7 @@ class MapLookup private[terms] (val base: Term, val key: Term) extends Term with
   val sort: Sort = p0.sort.asInstanceOf[sorts.Map].valueSort
   override def p0: Term = base
   override def p1: Term = key
-  override lazy val toString = s"MapLookup(map = $p0; key = $p1)"
+  override lazy val toString = s"$p0[$p1]"
 }
 
 object MapLookup extends PreciseCondFlyweightFactory[(Term, Term), MapLookup] {
@@ -2295,31 +2295,15 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
 
 /* Magic wands */
 
+/**
+ * Represents a snapshot of a magic wand, which is a map from Snap to Snap.
+ *
+ * @param wandMap The map that represents the snapshot of the magic wand. It is a variable of sort Map(Snap, Snap).
+ */
 class MagicWandSnapshot(val wandMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
-  // utils.assertSort(abstractLhs, "abstract lhs", sorts.Snap)
   utils.assertSort(wandMap, "wand map", sorts.Map(sorts.Snap, sorts.Snap))
-// class MagicWandSnapshot(val map: Term) extends SnapshotTerm {
-  // Map from Snap to Snap
-//  utils.assertSort(map, "map", sorts.Map)
-//  utils.assertSort(map.sort.asInstanceOf[sorts.Map].keySort, "map key sort", sorts.Snap)
-//  utils.assertSort(map.sort.asInstanceOf[sorts.Map].valueSort, "map value sort", sorts.Snap)
-
-//  override lazy val toString = s"wandSnap(map $map)"
 
   override lazy val toString = s"wandSnap(wandMap = $wandMap)"
-
-  // NOTE: Unused function
-  // def merge(other: MagicWandSnapshot, branchConditions: Stack[Term]): MagicWandSnapshot = {
-    // assert(this.abstractLhs == other.abstractLhs)
-    // val condition = And(branchConditions)
-    // TODO: Merge the two maps and find test cases to test this
-    // val mergedMap = wandMap
-    // MagicWandSnapshot(mergedMap)
-  //    MagicWandSnapshot(this.abstractLhs, if (this.rhsSnapshot == other.rhsSnapshot)
-  //      this.rhsSnapshot
-  //    else
-  //      Ite(condition, other.rhsSnapshot, this.rhsSnapshot))
-  //   }
 
   override val equalityDefiningMembers: Term = wandMap
 }
@@ -2332,11 +2316,12 @@ object MagicWandSnapshot  {
   var pool = new TrieMap[(Term, Term), MagicWandSnapshot]()
 
   /**
-   * Wrap a map from Snap to Snap into a MagicWandSnapshot.
+   * Create a new MagicWandSnapshot instance.
    *
-   * See helper method: [[viper.silicon.rules.magicWandSupporter.createMagicWandSnapshot]]
+   * See helper method [[viper.silicon.rules.magicWandSupporter.createMagicWandSnapshot]]
+   * for more information on how to create a MagicWandSnapshot.
    *
-   * @param wandMap The variable to a map from Snap to Snap.
+   * @param snapshot A MagicWandSnapshot instance or a variable to a Map(Snap, Snap).
    * @return The resulting MagicWandSnapshot instance.
    */
   def apply(snapshot: Term): MagicWandSnapshot = {
@@ -2349,27 +2334,10 @@ object MagicWandSnapshot  {
         utils.assertSort(wandMap, "wandMap", sorts.Map(sorts.Snap, sorts.Snap))
         new MagicWandSnapshot(wandMap)
       }
-      // case _ => createSnapshot(First(snapshot), Second(snapshot))
+      // TODO: Create a new MagicWandSnapshot instance from a pure Snapshot, i.e. when inhaling a magic wand.
+      //       This map should take First(snapshot) as key and merge them with Second(snapshot)
     }
   }
-
-  // def apply(abstractLhs: Term, rhsSnapshot: Term): MagicWandSnapshot = {
-  //   if (Verifier.config.useFlyweight) {
-  //     pool.getOrElseUpdate((abstractLhs, rhsSnapshot), createSnapshot(abstractLhs, rhsSnapshot))
-  //   } else {
-  //     createSnapshot(abstractLhs, rhsSnapshot)
-  //   }
-  // }
-
-  // private def createSnapshot(abstractLhs: Term, rhsSnapshot: Term) = {
-  //   // TODO: create map out of Second(snapshot)
-  //   // this map should take First(snapshot) as key and merge them with Second(snapshot)
-  //   // the abstractLhs already defines a fresh variable that we can use to define the relation between LHS and RHS.
-  //   // So, to start with I simply try to build a map which takes such a LHS and returns the given RHS.
-  //   // There is the chance, that this results in the same unsoundness as the old implementation, but I think it is worth a try.
-  //   val map = MapUpdate((EmptyMap(sorts.Snap, sorts.Snap), abstractLhs, rhsSnapshot))
-  //   new MagicWandSnapshot(map)
-  // }
 
   def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.wandMap)
 }
