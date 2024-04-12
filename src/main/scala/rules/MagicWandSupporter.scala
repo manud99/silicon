@@ -358,8 +358,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
   def applyWand(s: State,
                 wand: ast.MagicWand,
                 pve: PartialVerificationError,
-                v: Verifier,
-                isApplying: Boolean)
+                v: Verifier)
                (Q: (State, Verifier) => VerificationResult)
                : VerificationResult = {
     // Consume the magic wand instance "A --* B".

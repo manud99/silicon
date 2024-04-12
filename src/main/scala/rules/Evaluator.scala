@@ -880,7 +880,7 @@ object evaluator extends EvaluationRules {
 
       case ast.Applying(wand, eIn) =>
         joiner.join[Term, Term](s, v)((s1, v1, QB) =>
-          magicWandSupporter.applyWand(s1, wand, pve, v1, isApplying = true)((s2, v2) => {
+          magicWandSupporter.applyWand(s1, wand, pve, v1)((s2, v2) => {
             eval(s2, eIn, pve, v2)(QB)
         }))(join(v.symbolConverter.toSort(eIn.typ), "joined_applying", s.relevantQuantifiedVariables, v))(Q)
 
