@@ -488,7 +488,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
    * @param v Verifier with which a variable is created in the current context.
    * @return The snapshot of the wand.
    */
-  private def createMagicWandSnapshot(abstractLhs: Var, rhsSnapshot: Term, v: Verifier): MagicWandSnapshot = {
+  def createMagicWandSnapshot(abstractLhs: Var, rhsSnapshot: Term, v: Verifier): MagicWandSnapshot = {
     v.decider.prover.comment("Create new magic wand snapshot map")
 
     // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,

@@ -398,7 +398,8 @@ object producer extends ProductionRules {
 
       case wand: ast.MagicWand =>
         val snap = sf(sorts.Snap, v)
-        magicWandSupporter.createChunk(s, wand, MagicWandSnapshot(snap), pve, v)((s1, chWand, v1) =>
+        val magicWandSnapshot = magicWandSupporter.createMagicWandSnapshot(v.decider.fresh(sorts.Snap), Second(snap), v)
+        magicWandSupporter.createChunk(s, wand, magicWandSnapshot, pve, v)((s1, chWand, v1) =>
           chunkSupporter.produce(s1, s1.h, chWand, v1)((s2, h2, v2) =>
             Q(s2.copy(h = h2), v2)))
 
