@@ -338,10 +338,10 @@ object executor extends ExecutionRules {
     stmt match {
       case _: ast.Seqn =>
       case _ =>
-        v.logger.info(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
-        v.logger.info(v.stateFormatter.format(s, v.decider.pcs))
+        v.logger.debug(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
+        v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
         if (s.reserveHeaps.nonEmpty)
-          v.logger.info("hR = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
+          v.logger.debug("hR = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
         v.decider.prover.comment("[exec]")
         v.decider.prover.comment(stmt.toString())
     }

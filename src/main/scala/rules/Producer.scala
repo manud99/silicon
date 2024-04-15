@@ -209,8 +209,8 @@ object producer extends ProductionRules {
                         (continuation: (State, Verifier) => VerificationResult)
                         : VerificationResult = {
 
-    v.logger.debug(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
-    v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
+    v.logger.trace(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
+    v.logger.trace(v.stateFormatter.format(s, v.decider.pcs))
 
     val Q: (State, Verifier) => VerificationResult = (state, verifier) =>
       continuation(if (state.exhaleExt) state.copy(reserveHeaps = state.h +: state.reserveHeaps.drop(1)) else state, verifier)

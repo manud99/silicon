@@ -112,14 +112,14 @@ object evaluator extends EvaluationRules {
             | _: ast.WildcardPerm | _: ast.FieldAccess =>
 
       case _ =>
-        v.logger.debug(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
-        v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
+        v.logger.trace(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
+        v.logger.trace(v.stateFormatter.format(s, v.decider.pcs))
         if (s.partiallyConsumedHeap.nonEmpty)
-          v.logger.debug("pcH = " + s.partiallyConsumedHeap.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
+          v.logger.trace("pcH = " + s.partiallyConsumedHeap.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
         if (s.reserveHeaps.nonEmpty)
-          v.logger.debug("hR = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
+          v.logger.trace("hR = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
         s.oldHeaps.get(Verifier.MAGIC_WAND_LHS_STATE_LABEL) match {
-          case Some(hLhs) =>   v.logger.debug("hLhs = " + v.stateFormatter.format(hLhs))
+          case Some(hLhs) =>   v.logger.trace("hLhs = " + v.stateFormatter.format(hLhs))
           case None =>
         }
         v.decider.prover.comment(s"[eval] $e")

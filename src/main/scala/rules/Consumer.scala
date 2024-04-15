@@ -178,11 +178,11 @@ object consumer extends ConsumptionRules {
      * time permissions have been consumed.
      */
 
-    v.logger.debug(s"\nCONSUME ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
-    v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
-//    v.logger.debug("heap = " + v.stateFormatter.format(h)) // is already printed by the stateFormatter
+    v.logger.trace(s"\nCONSUME ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
+    v.logger.trace(v.stateFormatter.format(s, v.decider.pcs))
+//    v.logger.trace("heap = " + v.stateFormatter.format(h)) // is already printed by the stateFormatter
     if (s.reserveHeaps.nonEmpty)
-      v.logger.debug("  Reserve Heaps = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
+      v.logger.trace("  Reserve Heaps = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
 
     val consumed = a match {
       case imp @ ast.Implies(e0, a0) if !a.isPure && s.moreJoins.id >= JoinMode.Impure.id =>
