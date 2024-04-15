@@ -2310,12 +2310,6 @@ class MagicWandSnapshot(val wandMap: Term) extends SnapshotTerm with Conditional
 
 object MagicWandSnapshot  {
   /**
-   * Since MagicWandSnapshot subclasses Combine, we cannot inherit the usual subclass
-   * [[viper.silicon.state.terms.GeneralCondFlyweightFactory]], so we have to copy&paste the code here.
-   */
-  var pool = new TrieMap[(Term, Term), MagicWandSnapshot]()
-
-  /**
    * Create a new MagicWandSnapshot instance.
    *
    * See helper method [[viper.silicon.rules.magicWandSupporter.createMagicWandSnapshot]]

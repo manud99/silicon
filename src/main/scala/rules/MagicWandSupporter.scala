@@ -338,17 +338,18 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     results.foldLeft(r)((res, packageOut) => {
       res && {
-        val state = packageOut._1
-        val branchConditions = packageOut._2
-        val branchConditionsExp = packageOut._3
-        val conservedPcs = packageOut._4
-        val magicWandChunk = packageOut._5
-        val s1 = state.copy(reserveHeaps = state.reserveHeaps.drop(3),
+        val (state, branchConditions, branchConditionsExp, conservedPcs, magicWandChunk) = packageOut
+        val s1 = state.copy(
+          reserveHeaps = state.reserveHeaps.drop(3),
           parallelizeBranches = s.parallelizeBranches /* See comment above */
-          /*branchConditions = c.branchConditions*/)
+          /*branchConditions = c.branchConditions*/
+        )
         executionFlowController.locally(s1, v)((s2, v1) => {
           v1.decider.setCurrentBranchCondition(And(branchConditions), Some(viper.silicon.utils.ast.BigAnd(branchConditionsExp.flatten)))
-          conservedPcs.foreach(pcs => v1.decider.assume(pcs.conditionalized))
+          conservedPcs.foreach(pcs => {
+            v1.decider.prover.comment(s"Conserved path conditions ${pcs.conditionalized}")
+            v1.decider.assume(pcs.conditionalized)
+          })
           Q(s2, magicWandChunk, v1)
         })
       }
