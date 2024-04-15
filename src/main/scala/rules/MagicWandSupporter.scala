@@ -252,7 +252,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
         val formalVars = bodyVars.indices.toList.map(i => Var(Identifier(s"x$i"), v.symbolConverter.toSort(bodyVars(i).typ), false))
 
         evals(s4, bodyVars, _ => pve, v3)((s5, args, v4) => {
-          val (sm, smValueDef) = quantifiedChunkSupporter.singletonSnapshotMap(s5, wand, args, wandSnapshot, v4)
+          val (sm, smValueDef) = quantifiedChunkSupporter.singletonSnapshotMap(s5, wand, args, MapLookup(wandSnapshot.wandMap, freshSnapRoot), v4)
           v4.decider.prover.comment("Definitional axioms for singleton-SM's value")
           v4.decider.assumeDefinition(smValueDef)
           val ch = quantifiedChunkSupporter.createSingletonQuantifiedChunk(formalVars, wand, args, FullPerm, sm, s.program)
@@ -366,6 +366,8 @@ object magicWandSupporter extends SymbolicExecutionRules {
       // Wrap snapshot inside MagicWandSnapshot class.
       // For now: assuming that snap is already a MagicWandSnapshot
       // TODO: handle situations where snapshot was inhaled and is not a MagicWandSnapshot yet.
+      //  e.g. triggerWand.vpr -> snap = PredicateLookup(wand@0, sm@16@01, List(z@4@01, W, y@3@01, W))
+      v.logger.debug(s"applyWand -> consume: snap = $snap")
       val wandSnap = MagicWandSnapshot(snap)
 
       // Consume the wand's LHS "A".
