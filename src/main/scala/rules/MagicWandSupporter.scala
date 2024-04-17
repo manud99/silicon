@@ -242,9 +242,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
       v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
 
       // TODO: Find better solution to lift the definition of the magic wand snapshot into a wider scope.
-      v3.decider.popScope()
       val wandSnapshot = createMagicWandSnapshot(freshSnapRoot, snap, v3)
-      v3.decider.pushScope()
 
       // If the wand is part of a quantified expression
       if (s4.qpMagicWands.contains(MagicWandIdentifier(wand, s.program))) {
@@ -497,7 +495,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
     // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,
     // and relates it to the snapshot of the RHS. We use this to preserve values of the LHS in the RHS snapshot.
     val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
-    v.decider.assume(Forall(abstractLhs, MapLookup(wandMap, abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
+    v.decider.assumeDefinition(Forall(abstractLhs, MapLookup(wandMap, abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
 
     MagicWandSnapshot(wandMap)
   }
