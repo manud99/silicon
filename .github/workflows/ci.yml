@@ -79,6 +79,15 @@ jobs:
           path: |
             silicon.jar
             buildinfo.log
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: test reports
+          path: |
             target/test-reports/*.xml
           retention-days: 14
           if-no-files-found: error
