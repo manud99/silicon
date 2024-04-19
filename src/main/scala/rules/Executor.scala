@@ -205,8 +205,8 @@ object executor extends ExecutionRules {
           : VerificationResult = {
 
     block match {
-      case cfg.StatementBlock(stmt) =>
-        execs(s, stmt, v)((s1, v1) =>
+      case cfg.StatementBlock(stmts) =>
+        execs(s, stmts, v)(Q = (s1, v1) =>
           follows(s1, magicWandSupporter.getOutEdges(s1, block), IfFailed, v1, joinPoint)(Q))
 
       case   _: cfg.PreconditionBlock[ast.Stmt, ast.Exp]
@@ -313,20 +313,22 @@ object executor extends ExecutionRules {
           (Q: (State, Verifier) => VerificationResult)
           : VerificationResult = {
     val sepIdentifier = v.symbExLog.openScope(new ExecuteRecord(stmt, s, v.decider.pcs))
-    exec_stmt(s, stmt, v)((s1, v1) => {
+    execStmt(s, stmt, v)((s1, v1) => {
       v1.symbExLog.closeScope(sepIdentifier)
-      Q(s1, v1)})
+      Q(s1, v1)
+    })
   }
 
   /**
    * Executes a single statement. This method is called by execs and exec.
+   *
    * @param state State to act on
    * @param stmt Statement to execute
    * @param v Verifier object
    * @param continuation Continuation to call after the statement has been executed
    * @return Result of the continuation
    */
-  def exec_stmt(state: State, stmt: ast.Stmt, v: Verifier)
+  private def execStmt(state: State, stmt: ast.Stmt, v: Verifier)
            (continuation: (State, Verifier) => VerificationResult)
            : VerificationResult = {
 

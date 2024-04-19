@@ -2298,9 +2298,16 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
 /**
  * Represents a snapshot of a magic wand, which is a map from Snap to Snap.
  *
+ * @param abstractLhs The term that represent the snapshot of the consumed left-hand side of the magic wand.
+ *                    It is used as a bound variable in a forall quantifier.
+ * @param rhsSnapshot The term that integrates the left-hand side in the snapshot that is produced after applying the magic wand.
  * @param wandMap The map that represents the snapshot of the magic wand. It is a variable of sort Map(Snap, Snap).
+ *                In the symbolic execution this represents a function that when we apply a magic wand
+ *                it consumes the left-hand side and uses the resulting snapshot to look up which right-hand side should be produced.
  */
-class MagicWandSnapshot(val wandMap: Term) extends Term with ConditionalFlyweight[Term, MagicWandSnapshot] {
+class MagicWandSnapshot(val abstractLhs: Var, val rhsSnapshot: Term, val wandMap: Term) extends Term with ConditionalFlyweight[Term, MagicWandSnapshot] {
+  utils.assertSort(abstractLhs, "abstract lhs", sorts.Snap)
+  utils.assertSort(rhsSnapshot, "rhs snapshot", sorts.Snap)
   utils.assertSort(wandMap, "wand map", sorts.Map(sorts.Snap, sorts.Snap))
 
   override val sort: Sort = sorts.Map(sorts.Snap, sorts.Snap)
@@ -2308,6 +2315,12 @@ class MagicWandSnapshot(val wandMap: Term) extends Term with ConditionalFlyweigh
   override lazy val toString = s"wandSnap(wandMap = $wandMap)"
 
   override val equalityDefiningMembers: Term = wandMap
+
+  /**
+   * Creates a lookup term that can be used to define a `wandMap` inside a forall quantifier over all `abstractLhs` terms.
+   * @return Equality which says that the map applied to the abstractLhs equals to the snapshot of the rhs.
+   */
+  def lookupTerm: Term = MapLookup(wandMap, abstractLhs) === rhsSnapshot
 }
 
 object MagicWandSnapshot  {
@@ -2324,20 +2337,24 @@ object MagicWandSnapshot  {
     snapshot match {
       case SortWrapper(term, sort) if term.isInstanceOf[MagicWandSnapshot] => {
         // assert(sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${sort}")
-        new MagicWandSnapshot(term)
+        term.asInstanceOf[MagicWandSnapshot]
       }
       case snap: MagicWandSnapshot => {
         // assert(snapshot.sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${snapshot.sort}")
         snap
       }
-      case wandMap: Var => {
-        utils.assertSort(wandMap, "wandMap", sorts.Map(sorts.Snap, sorts.Snap))
-        new MagicWandSnapshot(wandMap)
-      }
+      // case wandMap: Var => {
+      //   utils.assertSort(wandMap, "wandMap", sorts.Map(sorts.Snap, sorts.Snap))
+      //   new MagicWandSnapshot(wandMap)
+      // }
+      case predicateLookup: PredicateLookup => ???
+      case ite: Ite => ???
       // TODO: Create a new MagicWandSnapshot instance from a pure Snapshot, i.e. when inhaling a magic wand.
       //       This map should take First(snapshot) as key and merge them with Second(snapshot)
     }
   }
+
+  def apply(abstractLhs: Var, rhsSnapshot: Term, wandMap: Term): MagicWandSnapshot = new MagicWandSnapshot(abstractLhs, rhsSnapshot, wandMap)
 
   def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.wandMap)
 }

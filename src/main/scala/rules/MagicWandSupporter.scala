@@ -179,6 +179,25 @@ object magicWandSupporter extends SymbolicExecutionRules {
     }
   }
 
+  /**
+   * Package a magic wand into a chunk. It performs the computation of the wand's footprint
+   * and captures all values associated to these locations inside the wand's snapshot.
+   *
+   * {{{
+   * package A --* B { <proofScript> }
+   * }}}
+   *
+   * For reference see Chapter 3 and 5 of [[http://malte.schwerhoff.de/docs/phd_thesis.pdf Malte Schwerhoff's PhD thesis]]
+   * and [[https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Nils_Becker_BA_report.pdf Nils Becker's Bachelor report]]
+   *
+   * @param state Current state.
+   * @param wand AST representation of the magic wand.
+   * @param proofScript AST of the proof script. The proof script contains instructions how we can construct the RHS given the LHS.
+   * @param pve Partial Verification Error that is used to report errors.
+   * @param v Verifier instance.
+   * @param Q Continuation-style function that is called with the resulting state and the chunk that was created.
+   * @return Result of the overall verification process.
+   */
   def packageWand(state: State,
                   wand: ast.MagicWand,
                   proofScript: ast.Seqn,
@@ -196,7 +215,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     val stackSize = 3 + s.reserveHeaps.tail.size
     // IMPORTANT: Size matches structure of reserveHeaps at [State RHS] below
-    var results: Seq[(State, Stack[Term], Stack[Option[Exp]], Vector[RecordedPathConditions], Chunk)] = Nil
+    var results: Seq[(State, Stack[Term], Stack[Option[Exp]], Vector[RecordedPathConditions], Chunk, MagicWandSnapshot)] = Nil
 
     /* TODO: When parallelising branches, some of the runtime assertions in the code below crash
      *       during some executions - since such crashes are hard to debug, branch parallelisation
@@ -209,7 +228,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
                       recordPcs = true,
                       parallelizeBranches = false)
 
-    def appendToResults(s5: State, ch: Chunk, pcs: RecordedPathConditions, v4: Verifier): Unit = {
+    def appendToResults(s5: State, ch: Chunk, pcs: RecordedPathConditions, wandSnapshot: MagicWandSnapshot, v4: Verifier): Unit = {
       assert(s5.conservedPcs.nonEmpty, s"Unexpected structure of s5.conservedPcs: ${s5.conservedPcs}")
 
       var conservedPcs: Vector[RecordedPathConditions] = Vector.empty
@@ -230,7 +249,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
       val s6 = s5.copy(conservedPcs = conservedPcsStack, recordPcs = s.recordPcs)
 
-      results :+= (s6, v4.decider.pcs.branchConditions, v4.decider.pcs.branchConditionExps, conservedPcs, ch)
+      results :+= (s6, v4.decider.pcs.branchConditions, v4.decider.pcs.branchConditionExps, conservedPcs, ch, wandSnapshot)
     }
 
     def createWandChunkAndRecordResults(s4: State,
@@ -239,10 +258,9 @@ object magicWandSupporter extends SymbolicExecutionRules {
                                         v3: Verifier)
                                        : VerificationResult = {
       val preMark = v3.decider.setPathConditionMark()
-      v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
 
-      // TODO: Find better solution to lift the definition of the magic wand snapshot into a wider scope.
-      val wandSnapshot = createMagicWandSnapshot(freshSnapRoot, snap, v3)
+      v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
+      val wandSnapshot = MagicWandSnapshot(freshSnapRoot, snap, v3.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap)))
 
       // If the wand is part of a quantified expression
       if (s4.qpMagicWands.contains(MagicWandIdentifier(wand, s.program))) {
@@ -254,14 +272,14 @@ object magicWandSupporter extends SymbolicExecutionRules {
           v4.decider.prover.comment("Definitional axioms for singleton-SM's value")
           v4.decider.assumeDefinition(smValueDef)
           val ch = quantifiedChunkSupporter.createSingletonQuantifiedChunk(formalVars, wand, args, FullPerm, sm, s.program)
-          appendToResults(s5, ch, v4.decider.pcs.after(preMark), v4)
+          appendToResults(s5, ch, v4.decider.pcs.after(preMark), wandSnapshot, v4)
           Success()
         })
 
       } else {
         magicWandSupporter.createChunk(s4, wand, wandSnapshot, pve, v3)((s5, ch, v4) => {
           // v.logger.debug(s"done: create wand chunk: $ch")
-          appendToResults(s5, ch, v4.decider.pcs.after(preMark), v4)
+          appendToResults(s5, ch, v4.decider.pcs.after(preMark), wandSnapshot, v4)
           Success()
         })
       }
@@ -308,10 +326,15 @@ object magicWandSupporter extends SymbolicExecutionRules {
         // v.logger.debug(s"done: produced LHS ${wand.left}")
         // v.logger.debug(s"next: consume RHS ${wand.right}")
 
+        // Execute proof script, i.e. the part written after the magic wand wrapped by curly braces.
         executor.exec(s2, proofScriptCfg, v2)((proofScriptState, proofScriptVerifier) => {
-          consume(proofScriptState.copy(oldHeaps = s2.oldHeaps, reserveCfgs = proofScriptState.reserveCfgs.tail), wand.right, pve, proofScriptVerifier)((s3, snap, v3) => {
+          // Consume the wand's RHS.
+          consume(
+            proofScriptState.copy(oldHeaps = s2.oldHeaps, reserveCfgs = proofScriptState.reserveCfgs.tail),
+            wand.right, pve, proofScriptVerifier
+          )((s3, snap, v3) => {
 
-            // v.logger.debug(s"done: consumed RHS ${wand.right}")
+            // v.logger.debug(s"done: consume RHS ${wand.right}")
 
             val s4 = s3.copy(//h = s.h, /* Temporarily */
                              exhaleExt = false,
@@ -336,7 +359,8 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     results.foldLeft(r)((res, packageOut) => {
       res && {
-        val (state, branchConditions, branchConditionsExp, conservedPcs, magicWandChunk) = packageOut
+        // TODO: What is the difference between a normal and a conserved path condition?
+        val (state, branchConditions, branchConditionsExp, conservedPcs, magicWandChunk, wandSnapshot) = packageOut
         val s1 = state.copy(
           reserveHeaps = state.reserveHeaps.drop(3),
           parallelizeBranches = s.parallelizeBranches /* See comment above */
@@ -344,10 +368,17 @@ object magicWandSupporter extends SymbolicExecutionRules {
         )
         executionFlowController.locally(s1, v)((s2, v1) => {
           v1.decider.setCurrentBranchCondition(And(branchConditions), Some(viper.silicon.utils.ast.BigAnd(branchConditionsExp.flatten)))
-          conservedPcs.foreach(pcs => {
-            v1.decider.prover.comment(s"Conserved path conditions ${pcs.conditionalized}")
-            v1.decider.assume(pcs.conditionalized)
-          })
+          // For all path conditions which include the freshSnapRoot, we need to add this path condition as part of the definition of the wandMap
+          // i.e. for a path condition pc that means:
+          // forall t:Snap . MapLookup(wandMap, t) = rhs && pc(t)
+          // TODO: Problem right now is that the wand map definition is itself a path condition. Can we merge those?
+          //  How to find the freshSnapRoot variable. Should it be global to this method or can there be multiple ones?
+          //  v1.decider.assume(Forall(wandSnapshot.abstractLhs, MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
+
+          v1.decider.assume(Forall(wandSnapshot.abstractLhs, And(
+            (MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs) === wandSnapshot.rhsSnapshot) +:
+              conservedPcs.flatMap(_.conditionalized)
+          ), Trigger(MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs))))
           Q(s2, magicWandChunk, v1)
         })
       }
@@ -497,6 +528,6 @@ object magicWandSupporter extends SymbolicExecutionRules {
     val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
     v.decider.assumeDefinition(Forall(abstractLhs, MapLookup(wandMap, abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
 
-    MagicWandSnapshot(wandMap)
+    MagicWandSnapshot(abstractLhs, rhsSnapshot, wandMap)
   }
 }
