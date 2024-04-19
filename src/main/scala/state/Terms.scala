@@ -2300,7 +2300,7 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
  *
  * @param wandMap The map that represents the snapshot of the magic wand. It is a variable of sort Map(Snap, Snap).
  */
-class MagicWandSnapshot(val wandMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
+class MagicWandSnapshot(val wandMap: Term) extends Term with ConditionalFlyweight[Term, MagicWandSnapshot] {
   utils.assertSort(wandMap, "wand map", sorts.Map(sorts.Snap, sorts.Snap))
 
   override val sort: Sort = sorts.Map(sorts.Snap, sorts.Snap)
@@ -2322,8 +2322,12 @@ object MagicWandSnapshot  {
    */
   def apply(snapshot: Term): MagicWandSnapshot = {
     snapshot match {
+      case SortWrapper(term, sort) if term.isInstanceOf[MagicWandSnapshot] => {
+        // assert(sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${sort}")
+        new MagicWandSnapshot(term)
+      }
       case snap: MagicWandSnapshot => {
-        assert(snapshot.sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${snapshot.sort}")
+        // assert(snapshot.sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${snapshot.sort}")
         snap
       }
       case wandMap: Var => {
@@ -2460,7 +2464,7 @@ object PsfTop extends (String => Identifier) {
  */
 
 /* Note: Sort wrappers should probably not be used as (outermost) triggers
- * because they are optimised away if wrappee `t` already has sort `to`.
+ * because they are optimised away if wrapped `t` already has sort `to`.
  */
 class SortWrapper(val t: Term, val to: Sort)
     extends Term
