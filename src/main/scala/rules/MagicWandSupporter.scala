@@ -215,7 +215,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
     val stackSize = 3 + s.reserveHeaps.tail.size
     // IMPORTANT: Size matches structure of reserveHeaps at [State RHS] below
-    var results: Seq[(State, Stack[Term], Stack[Option[Exp]], Vector[RecordedPathConditions], Chunk, MagicWandSnapshot)] = Nil
+    var recordedBranches: Seq[(State, Stack[Term], Stack[Option[Exp]], Vector[RecordedPathConditions], Chunk, MagicWandSnapshot)] = Nil
 
     /* TODO: When parallelising branches, some of the runtime assertions in the code below crash
      *       during some executions - since such crashes are hard to debug, branch parallelisation
@@ -249,7 +249,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
       val s6 = s5.copy(conservedPcs = conservedPcsStack, recordPcs = s.recordPcs)
 
-      results :+= (s6, v4.decider.pcs.branchConditions, v4.decider.pcs.branchConditionExps, conservedPcs, ch, wandSnapshot)
+      recordedBranches :+= (s6, v4.decider.pcs.branchConditions, v4.decider.pcs.branchConditionExps, conservedPcs, ch, wandSnapshot)
     }
 
     def createWandChunkAndRecordResults(s4: State,
@@ -285,7 +285,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
       }
     }
 
-    val r = executionFlowController.locally(sEmp, v)((s1, v1) => {
+    val result = executionFlowController.locally(sEmp, v)((s1, v1) => {
       /* A snapshot (binary tree) will be constructed using First/Second datatypes,
        * that preserves the original root. The leafs of this tree will later appear
        * in the snapshot of the RHS at the appropriate places. Thus equating
@@ -349,7 +349,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
     })
 
     // v.logger.debug(s"\npackageWand -> results (${results.length}): $results\n")
-    if (results.isEmpty) {
+    if (recordedBranches.isEmpty) {
       // No results mean that packaging the wand resulted in inconsistent states on all paths,
       // and thus, that no wand chunk was created. In order to continue, we create one now.
       // Moreover, we need to set reserveHeaps to structurally match [State RHS] below.
@@ -357,28 +357,28 @@ object magicWandSupporter extends SymbolicExecutionRules {
       createWandChunkAndRecordResults(s1, freshSnap(sorts.Snap, v), freshSnap(sorts.Snap, v), v)
     }
 
-    results.foldLeft(r)((res, packageOut) => {
-      res && {
+    recordedBranches.foldLeft(result)((prevRes, recordedState) => {
+      prevRes && {
         // TODO: What is the difference between a normal and a conserved path condition?
-        val (state, branchConditions, branchConditionsExp, conservedPcs, magicWandChunk, wandSnapshot) = packageOut
+        val (state, branchConditions, branchConditionsExp, conservedPcs, magicWandChunk, wandSnapshot) = recordedState
         val s1 = state.copy(
           reserveHeaps = state.reserveHeaps.drop(3),
           parallelizeBranches = s.parallelizeBranches /* See comment above */
-          /*branchConditions = c.branchConditions*/
         )
-        executionFlowController.locally(s1, v)((s2, v1) => {
-          v1.decider.setCurrentBranchCondition(And(branchConditions), Some(viper.silicon.utils.ast.BigAnd(branchConditionsExp.flatten)))
-          // For all path conditions which include the freshSnapRoot, we need to add this path condition as part of the definition of the wandMap
-          // i.e. for a path condition pc that means:
-          // forall t:Snap . MapLookup(wandMap, t) = rhs && pc(t)
-          // TODO: Problem right now is that the wand map definition is itself a path condition. Can we merge those?
-          //  How to find the freshSnapRoot variable. Should it be global to this method or can there be multiple ones?
-          //  v1.decider.assume(Forall(wandSnapshot.abstractLhs, MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
 
+        // We execute the continuation Q in a new scope with all branch conditions and all conserved path conditions.
+        executionFlowController.locally(s1, v)((s2, v1) => {
+          // Set the branch conditions
+          v1.decider.setCurrentBranchCondition(And(branchConditions), Some(viper.silicon.utils.ast.BigAnd(branchConditionsExp.flatten)))
+
+          // For all path conditions which include the abstractLhs, add those as part of the definition of the wandMap
+          val (pcsWithAbsLhs, pcsWithoutAbsLhs) = conservedPcs.partition(pcs => pcs.conditionalized.contains(wandSnapshot.abstractLhs))
+          pcsWithoutAbsLhs.foreach(pcs => v1.decider.assume(pcs.conditionalized))
           v1.decider.assume(Forall(wandSnapshot.abstractLhs, And(
             (MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs) === wandSnapshot.rhsSnapshot) +:
-              conservedPcs.flatMap(_.conditionalized)
+              pcsWithAbsLhs.flatMap(_.conditionalized)
           ), Trigger(MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs))))
+
           Q(s2, magicWandChunk, v1)
         })
       }
