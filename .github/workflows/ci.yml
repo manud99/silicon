@@ -90,8 +90,8 @@ jobs:
           name: "Silicon Test Report"
           path: "target/test-reports/*.xml"
           reporter: java-junit
-          list-suites: 'failed'
-          list-tests: 'failed'
+          list-suites: failed
+          list-tests: failed
 
   release-snapshot:
     needs: test-and-assemble
