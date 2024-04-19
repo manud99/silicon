@@ -2303,6 +2303,8 @@ object PredicateTrigger extends PreciseCondFlyweightFactory[(String, Term, Seq[T
 class MagicWandSnapshot(val wandMap: Term) extends SnapshotTerm with ConditionalFlyweight[Term, MagicWandSnapshot] {
   utils.assertSort(wandMap, "wand map", sorts.Map(sorts.Snap, sorts.Snap))
 
+  override val sort: Sort = sorts.Map(sorts.Snap, sorts.Snap)
+
   override lazy val toString = s"wandSnap(wandMap = $wandMap)"
 
   override val equalityDefiningMembers: Term = wandMap
