@@ -180,7 +180,6 @@ object consumer extends ConsumptionRules {
 
     v.logger.trace(s"\nCONSUME ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
     v.logger.trace(v.stateFormatter.format(s, v.decider.pcs))
-//    v.logger.trace("heap = " + v.stateFormatter.format(h)) // is already printed by the stateFormatter
     if (s.reserveHeaps.nonEmpty)
       v.logger.trace("  Reserve Heaps = " + s.reserveHeaps.map(v.stateFormatter.format).mkString("", ",\n     ", ""))
 

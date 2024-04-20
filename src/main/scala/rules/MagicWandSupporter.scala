@@ -135,7 +135,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
     val initial = (initialConsumptionResult, s, Stack.empty[Heap], Stack.empty[Option[CH]])
     val (result, s1, heaps, consumedChunks) =
       hs.foldLeft[(ConsumptionResult, State, Stack[Heap], Stack[Option[CH]])](initial)((partialResult, heap) =>
-        partialResult match  {
+        partialResult match {
           case (r: Complete, sIn, hps, cchs)  => (r, sIn, heap +: hps, None +: cchs)
           case (Incomplete(permsNeeded), sIn, hps, cchs) =>
             val (success, sOut, h, cch) = consumeFunction(sIn, heap, permsNeeded, v)
@@ -387,6 +387,16 @@ object magicWandSupporter extends SymbolicExecutionRules {
     })
   }
 
+  /**
+   * Apply a magic wand to the current state. This consumes the magic wand itself and the LHS of the wand, and then produces the RHS.
+   *
+   * @param s Current state.
+   * @param wand The AST instance of the magic wand to apply.
+   * @param pve Partial Verification Error that is used to report errors.
+   * @param v Verifier instance.
+   * @param Q Continuation-style function that is called with the resulting state and the verification result.
+   * @return Result of the overall verification process.
+   */
   def applyWand(s: State,
                 wand: ast.MagicWand,
                 pve: PartialVerificationError,
@@ -394,28 +404,32 @@ object magicWandSupporter extends SymbolicExecutionRules {
                (Q: (State, Verifier) => VerificationResult)
                : VerificationResult = {
     // Consume the magic wand instance "A --* B".
-    consume(s, wand, pve, v)((s1, snap, v1) => {
+    consume(s, wand, pve, v)((s1, snapWand, v1) => {
       // Wrap snapshot inside MagicWandSnapshot class.
       // For now: assuming that snap is already a MagicWandSnapshot
-      // TODO: handle situations where snapshot was inhaled and is not a MagicWandSnapshot yet.
-      //  e.g. triggerWand.vpr -> snap = PredicateLookup(wand@0, sm@16@01, List(z@4@01, W, y@3@01, W))
-      v.logger.debug(s"applyWand -> consume: snap = $snap")
-      val wandSnap = MagicWandSnapshot(snap)
+      v.logger.debug(s"applyWand -> consume: snap = $snapWand")
 
       // Consume the wand's LHS "A".
-      consume(s1, wand.left, pve, v1)((s2, snap, v2) => {
-        /* It is assumed that snap and wandSnap.abstractLhs are structurally the same.
+      consume(s1, wand.left, pve, v1)((s2, snapLhs, v2) => {
+        /* It is assumed that snap and MagicWandSnapshot.abstractLhs are structurally the same.
          * Equating the two snapshots is sound iff a wand is applied only once.
-         * Older solution in this case did use this assumption:
-         * v2.decider.assume(snap === wandSnap.abstractLhs)
+         * The older solution in this case did use this assumption:
+         * v2.decider.assume(snap === snapWand.abstractLhs)
          */
-        assert(snap.sort == sorts.Snap, s"expected snapshot but found: $snap")
+        assert(snapLhs.sort == sorts.Snap, s"expected snapshot but found: $snapLhs")
 
         // Create copy of the state with a new labelled heap (i.e. `oldHeaps`) called "lhs".
         val s3 = s2.copy(oldHeaps = s1.oldHeaps + (Verifier.MAGIC_WAND_LHS_STATE_LABEL -> magicWandSupporter.getEvalHeap(s1)))
 
+        // If the snapWand is a (wrapped) MagicWandSnapshot then lookup the snapshot of the right-hand side by applying snapLhs.
+        val magicWandSnapshotLookup = snapWand match {
+          case snapshot: MagicWandSnapshot => snapshot.applyToWandMap(snapLhs)
+          case SortWrapper(snapshot: MagicWandSnapshot, _) => snapshot.applyToWandMap(snapLhs)
+          case _ => snapWand
+        }
+
         // Produce the wand's RHS.
-        produce(s3.copy(conservingSnapshotGeneration = true), toSf(MapLookup(wandSnap.wandMap, snap)), wand.right, pve, v2)((s4, v3) => {
+        produce(s3.copy(conservingSnapshotGeneration = true), toSf(magicWandSnapshotLookup), wand.right, pve, v2)((s4, v3) => {
           // Recreate old state without the magic wand, and the state with the oldHeap called lhs.
           val s5 = s4.copy(g = s1.g, conservingSnapshotGeneration = s3.conservingSnapshotGeneration)
 

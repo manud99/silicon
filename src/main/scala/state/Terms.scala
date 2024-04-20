@@ -2322,42 +2322,21 @@ class MagicWandSnapshot(val abstractLhs: Var, val rhsSnapshot: Term, val wandMap
    * @return Equality which says that the map applied to an arbitrary lhs equals to the snapshot of the rhs.
    */
   def lookupDefinition: Term = MapLookup(wandMap, abstractLhs) === rhsSnapshot
+
+  /**
+   * Apply the given snapshot of the left-hand side to the magic wand map to get the snapshot of the right-hand side
+   * which includes the values of the left-hand side.
+   *
+   * @param snapLhs The snapshot of the left-hand side that should be applied to the magic wand map.
+   * @return The snapshot of the right-hand side that preserves the values of the left-hand side.
+   */
+  def applyToWandMap(snapLhs: Term): Term = MapLookup(wandMap, snapLhs)
 }
 
 object MagicWandSnapshot  {
-  /**
-   * Create a new MagicWandSnapshot instance.
-   *
-   * See helper method [[viper.silicon.rules.magicWandSupporter.createMagicWandSnapshot]]
-   * for more information on how to create a MagicWandSnapshot.
-   *
-   * @param snapshot A MagicWandSnapshot instance or a variable to a Map(Snap, Snap).
-   * @return The resulting MagicWandSnapshot instance.
-   */
-  def apply(snapshot: Term): MagicWandSnapshot = {
-    snapshot match {
-      case SortWrapper(term, sort) if term.isInstanceOf[MagicWandSnapshot] => {
-        // assert(sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${sort}")
-        term.asInstanceOf[MagicWandSnapshot]
-      }
-      case snap: MagicWandSnapshot => {
-        // assert(snapshot.sort == sorts.Snap, s"Expected snapshot to be of sort Snap, but got ${snapshot.sort}")
-        snap
-      }
-      // case wandMap: Var => {
-      //   utils.assertSort(wandMap, "wandMap", sorts.Map(sorts.Snap, sorts.Snap))
-      //   new MagicWandSnapshot(wandMap)
-      // }
-      case predicateLookup: PredicateLookup => ???
-      case ite: Ite => ???
-      // TODO: Create a new MagicWandSnapshot instance from a pure Snapshot, i.e. when inhaling a magic wand.
-      //       This map should take First(snapshot) as key and merge them with Second(snapshot)
-    }
-  }
-
   def apply(abstractLhs: Var, rhsSnapshot: Term, wandMap: Term): MagicWandSnapshot = new MagicWandSnapshot(abstractLhs, rhsSnapshot, wandMap)
 
-  def unapply(wandSnapshot: MagicWandSnapshot): Option[Term] = Some(wandSnapshot.wandMap)
+  def unapply(snap: MagicWandSnapshot): Option[(Var, Term, Term)] = Some(snap.abstractLhs, snap.rhsSnapshot, snap.wandMap)
 }
 
 class MagicWandChunkTerm(val chunk: MagicWandChunk) extends Term with ConditionalFlyweight[MagicWandChunk, MagicWandChunkTerm] {
