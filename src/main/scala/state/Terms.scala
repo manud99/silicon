@@ -2317,10 +2317,11 @@ class MagicWandSnapshot(val abstractLhs: Var, val rhsSnapshot: Term, val wandMap
   override val equalityDefiningMembers: Term = wandMap
 
   /**
-   * Creates a lookup term that can be used to define a `wandMap` inside a forall quantifier over all `abstractLhs` terms.
-   * @return Equality which says that the map applied to the abstractLhs equals to the snapshot of the rhs.
+   * Creates a term that can be used to define a `wandMap` inside a forall quantifier over all `abstractLhs` terms.
+   *
+   * @return Equality which says that the map applied to an arbitrary lhs equals to the snapshot of the rhs.
    */
-  def lookupTerm: Term = MapLookup(wandMap, abstractLhs) === rhsSnapshot
+  def lookupDefinition: Term = MapLookup(wandMap, abstractLhs) === rhsSnapshot
 }
 
 object MagicWandSnapshot  {

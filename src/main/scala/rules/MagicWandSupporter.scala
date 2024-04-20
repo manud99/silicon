@@ -371,14 +371,16 @@ object magicWandSupporter extends SymbolicExecutionRules {
           // Set the branch conditions
           v1.decider.setCurrentBranchCondition(And(branchConditions), Some(viper.silicon.utils.ast.BigAnd(branchConditionsExp.flatten)))
 
-          // For all path conditions which include the abstractLhs, add those as part of the definition of the wandMap
-          val (pcsWithAbsLhs, pcsWithoutAbsLhs) = conservedPcs.partition(pcs => pcs.conditionalized.contains(wandSnapshot.abstractLhs))
-          pcsWithoutAbsLhs.foreach(pcs => v1.decider.assume(pcs.conditionalized))
-          v1.decider.assume(Forall(wandSnapshot.abstractLhs, And(
-            (MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs) === wandSnapshot.rhsSnapshot) +:
-              pcsWithAbsLhs.flatMap(_.conditionalized)
-          ), Trigger(MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs))))
+          // For all conditionalized path conditions which include the abstractLhs, add those as part of the definition of the wandMap
+          val (pcsWithAbsLhs, pcsWithoutAbsLhs) = conservedPcs.flatMap(_.conditionalized).partition(pcs => pcs.contains(wandSnapshot.abstractLhs))
+          pcsWithoutAbsLhs.foreach(pcs => v1.decider.assume(pcs))
+          v1.decider.assume(Forall(
+            wandSnapshot.abstractLhs,
+            And(wandSnapshot.lookupDefinition +: pcsWithAbsLhs),
+            Trigger(MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs))
+          ))
 
+          // Execute the continuation Q
           Q(s2, magicWandChunk, v1)
         })
       }
@@ -526,8 +528,10 @@ object magicWandSupporter extends SymbolicExecutionRules {
     // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,
     // and relates it to the snapshot of the RHS. We use this to preserve values of the LHS in the RHS snapshot.
     val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
-    v.decider.assumeDefinition(Forall(abstractLhs, MapLookup(wandMap, abstractLhs) === rhsSnapshot, Trigger(MapLookup(wandMap, abstractLhs))))
+    val wandSnapshot = MagicWandSnapshot(abstractLhs, rhsSnapshot, wandMap)
 
-    MagicWandSnapshot(abstractLhs, rhsSnapshot, wandMap)
+    v.decider.assumeDefinition(Forall(abstractLhs, wandSnapshot.lookupDefinition, Trigger(MapLookup(wandMap, abstractLhs))))
+
+    wandSnapshot
   }
 }
