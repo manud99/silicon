@@ -261,6 +261,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
 
       v3.logger.debug(s"\npackageWand -> createWandChunkAndRecordResults: Create MagicWandSnapshot from freshSnapRoot $freshSnapRoot and snap $snap\n")
       val wandSnapshot = MagicWandSnapshot(freshSnapRoot, snap, v3.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap)))
+      v3.decider.assumeDefinition(wandSnapshot.lookupDefinition)
 
       // If the wand is part of a quantified expression
       if (s4.qpMagicWands.contains(MagicWandIdentifier(wand, s.program))) {
@@ -288,7 +289,7 @@ object magicWandSupporter extends SymbolicExecutionRules {
           val (pcsWithAbsLhs, pcsWithoutAbsLhs) = conservedPcs.flatMap(_.conditionalized).partition(pcs => pcs.contains(wandSnapshot.abstractLhs))
           val pcsQuantified = Forall(
             wandSnapshot.abstractLhs,
-            And(wandSnapshot.lookupDefinition +: pcsWithAbsLhs),
+            And(pcsWithAbsLhs),
             Trigger(MapLookup(wandSnapshot.wandMap, wandSnapshot.abstractLhs))
           )
 
