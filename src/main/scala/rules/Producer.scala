@@ -209,8 +209,8 @@ object producer extends ProductionRules {
                         (continuation: (State, Verifier) => VerificationResult)
                         : VerificationResult = {
 
-    v.logger.trace(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
-    v.logger.trace(v.stateFormatter.format(s, v.decider.pcs))
+    v.logger.debug(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
+    v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
 
     val Q: (State, Verifier) => VerificationResult = (state, verifier) =>
       continuation(if (state.exhaleExt) state.copy(reserveHeaps = state.h +: state.reserveHeaps.drop(1)) else state, verifier)
@@ -401,14 +401,14 @@ object producer extends ProductionRules {
 
         // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,
         // and relates it to the snapshot of the RHS. We use this to preserve values of the LHS in the RHS snapshot.
-        v.decider.prover.comment("Produce new magic wand snapshot map")
+        v.decider.prover.comment(s"Produce new magic wand snapshot map for wand $wand")
         val abstractLhs = v.decider.fresh(sorts.Snap)
         val wandMap = v.decider.fresh("$wm", sorts.Map(sorts.Snap, sorts.Snap))
         val magicWandSnapshot = MagicWandSnapshot(abstractLhs, MapLookup(snapRhs, abstractLhs), wandMap)
 
-        // We assume that the wand that we get from `snapRhs`, which is potentially nested in a binary tree,
-        // is the same as our newly created wandMap variable.
-        v.decider.assumeDefinition(Forall(abstractLhs, magicWandSnapshot.lookupDefinition, Trigger(MapLookup(wandMap, abstractLhs))))
+        // We assume that the wandMap that we get from `snapRhs`, which potentially is nested in a binary tree,
+        // is the same as our newly created wandMap.
+        v.decider.assumeDefinition(magicWandSnapshot.definition)
 
         magicWandSupporter.createChunk(s, wand, magicWandSnapshot, pve, v)((s1, chWand, v1) =>
           chunkSupporter.produce(s1, s1.h, chWand, v1)((s2, h2, v2) =>
