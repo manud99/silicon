@@ -397,25 +397,18 @@ object producer extends ProductionRules {
           Q(s2, v1)})
 
       case wand: ast.MagicWand =>
-        val magicWandSnapshot: MagicWandSnapshot = if (magicWandSupporter.useMWSF(s.program)) {
-          val snapRhs = sf(sorts.MagicWandSnapFunction, v)
+        val snapRhs = sf(sorts.MagicWandSnapFunction, v)
 
-          // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,
-          // and relates it to the snapshot of the RHS. We use this to preserve values of the LHS in the RHS snapshot.
-          v.decider.prover.comment(s"Produce new magic wand snapshot map for wand $wand")
-          val abstractLhs = v.decider.fresh(sorts.Snap)
-          val wandMap = v.decider.fresh("$mwsf", sorts.MagicWandSnapFunction)
-          val snapFunction = MagicWandSnapFunction(abstractLhs, MWSFLookup(snapRhs, abstractLhs), wandMap)
+        // Create Map that takes a snapshot, which represent the values of the consumed LHS of the wand,
+        // and relates it to the snapshot of the RHS. We use this to preserve values of the LHS in the RHS snapshot.
+        v.decider.prover.comment(s"Produce new magic wand snapshot map for wand $wand")
+        val abstractLhs = v.decider.fresh(sorts.Snap)
+        val wandMap = v.decider.fresh("$mwsf", sorts.MagicWandSnapFunction)
+        val magicWandSnapshot = MagicWandSnapshot(abstractLhs, MWSFLookup(snapRhs, abstractLhs), wandMap)
 
-          // We assume that the wandMap that we get from `snapRhs`, which potentially is nested in a binary tree,
-          // is the same as our newly created wandMap.
-          v.decider.assumeDefinition(snapFunction.definition)
-          snapFunction
-
-        } else {
-          val snap = sf(sorts.Snap, v)
-          MagicWandSnapSingleton(snap)
-        }
+        // We assume that the wandMap that we get from `snapRhs`, which potentially is nested in a binary tree,
+        // is the same as our newly created wandMap.
+        v.decider.assumeDefinition(magicWandSnapshot.definition)
 
         magicWandSupporter.createChunk(s, wand, magicWandSnapshot, pve, v)((s1, chWand, v1) =>
           chunkSupporter.produce(s1, s1.h, chWand, v1)((s2, h2, v2) =>
@@ -430,7 +423,7 @@ object producer extends ProductionRules {
           if (forall.triggers.isEmpty) None
           else Some(forall.triggers)
         evalQuantified(s, Forall, forall.variables, Seq(cond), Seq(acc.loc.rcv, acc.perm), optTrigger, qid, pve, v) {
-          case (s1, qvars, Seq(tCond), Seq(tRcvr, tPerm), tTriggers, (auxGlobals, auxNonGlobals), v1) =>
+          case (s1, qvars, Seq(tCond), Some((Seq(tRcvr, tPerm), tTriggers, (auxGlobals, auxNonGlobals))), v1) =>
             val tSnap = sf(sorts.FieldValueFunction(v1.symbolConverter.toSort(acc.loc.field.typ), acc.loc.field.name), v1)
 //            v.decider.assume(PermAtMost(tPerm, FullPerm()))
             quantifiedChunkSupporter.produce(
@@ -451,6 +444,7 @@ object producer extends ProductionRules {
               QPAssertionNotInjective(acc.loc),
               v1
             )(Q)
+          case (s1, _, _, None, v1) => Q(s1, v1)
         }
 
       case QuantifiedPermissionAssertion(forall, cond, acc: ast.PredicateAccessPredicate) =>
@@ -461,7 +455,7 @@ object producer extends ProductionRules {
           if (forall.triggers.isEmpty) None
           else Some(forall.triggers)
         evalQuantified(s, Forall, forall.variables, Seq(cond), acc.perm +: acc.loc.args, optTrigger, qid, pve, v) {
-          case (s1, qvars, Seq(tCond), Seq(tPerm, tArgs @ _*), tTriggers, (auxGlobals, auxNonGlobals), v1) =>
+          case (s1, qvars, Seq(tCond), Some((Seq(tPerm, tArgs @ _*), tTriggers, (auxGlobals, auxNonGlobals))), v1) =>
             val tSnap = sf(sorts.PredicateSnapFunction(s1.predicateSnapMap(predicate), predicate.name), v1)
             quantifiedChunkSupporter.produce(
               s1,
@@ -483,6 +477,7 @@ object producer extends ProductionRules {
               QPAssertionNotInjective(acc.loc),
               v1
             )(Q)
+          case (s1, _, _, None, v1) => Q(s1, v1)
         }
 
       case QuantifiedPermissionAssertion(forall, cond, wand: ast.MagicWand) =>
@@ -493,7 +488,7 @@ object producer extends ProductionRules {
           else Some(forall.triggers)
         val qid = MagicWandIdentifier(wand, s.program).toString
         evalQuantified(s, Forall, forall.variables, Seq(cond), bodyVars, optTrigger, qid, pve, v) {
-          case (s1, qvars, Seq(tCond), tArgs, tTriggers, (auxGlobals, auxNonGlobals), v1) =>
+          case (s1, qvars, Seq(tCond), Some((tArgs, tTriggers, (auxGlobals, auxNonGlobals))), v1) =>
             val tSnap = sf(sorts.PredicateSnapFunction(sorts.Snap, qid), v1)
             quantifiedChunkSupporter.produce(
               s1,
@@ -515,6 +510,7 @@ object producer extends ProductionRules {
               QPAssertionNotInjective(wand),
               v1
             )(Q)
+          case (s1, _, _, None, v1) => Q(s1, v1)
         }
 
       case _: ast.InhaleExhaleExp =>
