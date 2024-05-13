@@ -17,7 +17,7 @@ if [ ! -d "$FOLDER" ]; then
 fi
 
 # Get all tests that include a magic wand
-tests=$(grep -rnwl "$FOLDER" -e '--\*' --include "*.vpr" --exclude-dir={graphs,capture_avoidance,quasihavoc,transformations,adt})
+tests=$(grep -rnwl "$FOLDER" -e '--\*' --include "*.vpr" --exclude-dir={graphs,capture_avoidance,transformations,adt})
 
 # Split the tests into an array
 tests=($tests)
