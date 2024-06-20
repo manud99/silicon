@@ -19,6 +19,7 @@ import viper.silicon.state.terms.predef.`?r`
 import viper.silicon.state.terms._
 import viper.silicon.state._
 import viper.silicon.supporters.functions.NoopFunctionRecorder
+import viper.silicon.utils.toSf
 import viper.silicon.verifier.Verifier
 import viper.silver.verifier.reasons.{NegativePermission, QPAssertionNotInjective}
 
@@ -148,13 +149,9 @@ object producer extends ProductionRules {
         wrappedProduceTlc(s, sf, a, pve, v)(Q)
       else {
         try {
-          val (sf0, sf1) =
-            v.snapshotSupporter.createSnapshotPair(s, sf, a, viper.silicon.utils.ast.BigAnd(as.tail), v)
-          /* TODO: Refactor createSnapshotPair s.t. it can be used with Seq[Exp],
-           *       then remove use of BigAnd; for one it is not efficient since
-           *       the tail of the (decreasing list parameter as) is BigAnd-ed
-           *       over and over again.
-           */
+          val snap = sf(sorts.Snap, v)
+          val sf0 = toSf(First(snap))
+          val sf1 = toSf(Second(snap))
 
           wrappedProduceTlc(s, sf0, a, pve, v)((s1, v1) =>
             produceTlcs(s1, sf1, as.tail, pves.tail, v1)(Q))
